@@ -154,7 +154,7 @@
 		<div class="row">
 			<div class="col-12">
 				<footer>
-					<span>Copyright &copy; <span id="year"></span> <a href="https://github.com/abaron/bulk-domain-availability" target="_blank">~sdev</a></span>
+					<span>Copyright &copy; <span id="">@DateTime.UtcNow.Year.ToString()</span> <a href="https://github.com/ShubhamDubey1999/Domainventory" target="_blank">~sdev</a></span>
 				</footer>
 			</div>
 		</div>
@@ -162,13 +162,8 @@
 	</div>
 	<script src="~/lib/jquery/dist/jquery.min.js"></script>
 	<script src="~/lib/jquery/dist/jquery.js"></script>
-	@* <script src="~/js/script.js"></script> *@
 	<script src="~/js/table2csv.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
-
-	<script>
-		document.getElementById("year").textContent = new Date().getFullYear();
-	</script>
 	<script>
 		const connection = new signalR.HubConnectionBuilder()
 			.withUrl("/domainHub")
