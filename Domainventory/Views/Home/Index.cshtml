@@ -32,11 +32,15 @@
 			<h1>Bulk Domain Availability</h1>
 		</header>
 		<!-- / End header -->
+		<div id="loader" class="hidden">
+			<div class="spinner"></div>
+			<p>Importing domains...</p>
+		</div>
 
 		<form action="" method="post" accept-charset="utf-8" id="availability-form">
 			<div class="row">
 				<div class="col-8">
-					<textarea name="domains" placeholder="Enter domain name with/without extension and separated by spaces or new lines, e.g.:&#10;example.com&#10;facebook twitter&#10;anything" required></textarea>
+					<textarea name="domains" id="domainTextarea" placeholder="Enter domain name with/without extension and separated by spaces or new lines, e.g.:&#10;example.com&#10;facebook twitter&#10;anything" required></textarea>
 				</div>
 				<div class="col-4">
 					<select name="tlds" asp-items="@(new SelectList(ViewBag.Tlds))" multiple>
@@ -76,12 +80,29 @@
 						<button type="reset" class="warning">Reset</button>
 					</div>
 					<div class="col-4 right">
-						<button type="submit" id="search">Search</button>
-						<button type="button" id="pause" class="hidden">Pause</button>
-						<button type="button" id="resumeBtn" class="hidden">Resume</button>
-						<button type="button" id="stopBtn" class="error hidden">Stop</button>
+						<button type="submit" id="search">Search</button>						
 					</div>
 				</div>
+				<div class="col-12">
+					<div class="col-2">
+						<input type="file" onchange="uploadFile()" hidden id="importFile" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" />
+						<button type="button" onclick="ImportFile()" id="impfile">Import File</button>
+					</div>
+					<div class="col-4">
+						<a href="/sample/sample_domains.csv" download>Download Sample File</a>
+					</div>
+					<div class="col-2">
+						<button type="button" id="pause" class="hidden">Pause</button>
+					</div>
+					<div class="col-2">
+						<button type="button" id="resumeBtn" class="hidden">Resume</button>
+					</div>
+					<div class="col-2">
+						<button type="button" id="stopBtn" class="error hidden">Cancel Search</button>
+					</div>
+
+				</div>
+
 			</div>
 		</form>
 		<div class="row result hidden">
@@ -125,7 +146,7 @@
 				<label for="hide-resource">Hide resource</label>
 			</div>
 			<div class="col-12">
-					<button id="exportBtn" class="btn btn-secondary">Export to CSV</button>
+				<button id="exportBtn" class="btn btn-secondary">Export to CSV</button>
 			</div>
 
 			<div class="clearfix"></div>
@@ -149,7 +170,12 @@
 				</table>
 			</div>
 		</div>
-
+		<div id="loader" class="hidden">Importing...</div>
+		<div class="progress mb-3" style="height: 25px; display: none;" id="importProgressContainer">
+			<div id="importProgressBar" class="progress-bar" role="progressbar" style="width: 0%">
+				<span id="importProgressText">0%</span>
+			</div>
+		</div>
 		<!-- Start footer -->
 		<div class="row">
 			<div class="col-12">
@@ -164,6 +190,7 @@
 	<script src="~/lib/jquery/dist/jquery.js"></script>
 	<script src="~/js/table2csv.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 	<script>
 		const connection = new signalR.HubConnectionBuilder()
 			.withUrl("/domainHub")
@@ -195,16 +222,16 @@
 			row.className = statusClass;
 
 			row.innerHTML = `
-													<td>${currentIndex}</td>
-													<td>${domain}</td>
-													<td>${status}</td>
-													<td>${domain.length}</td>
-													<td>-</td>
-													<td class="clm-whois">-</td>
-													<td class="clm-resource">-</td>
-													<td class="clm-exec-time">-</td>
-													<td>${actionHtml}</td>
-												`;
+																			<td>${currentIndex}</td>
+																			<td>${domain}</td>
+																			<td>${status}</td>
+																			<td>${domain.length}</td>
+																			<td>-</td>
+																			<td class="clm-whois">-</td>
+																			<td class="clm-resource">-</td>
+																			<td class="clm-exec-time">-</td>
+																			<td>${actionHtml}</td>
+																		`;
 			if (status.toLowerCase().includes("unavailable") || status.toLowerCase().includes("invalid")) {
 				row.classList.add("error");
 			}
@@ -257,6 +284,9 @@
 
 				// Show result section
 				document.querySelector(".result").classList.remove("hidden");
+				document.querySelector("#stopBtn").classList.remove("hidden");
+				// document.querySelector("#resumeBtn").classList.remove("hidden");
+				document.querySelector("#pause").classList.remove("hidden");
 
 				fetch("/Home/CheckDomains", {
 					method: 'POST',
@@ -286,19 +316,68 @@
 				filename: "domain-results.csv"
 			});
 		});
-		document.getElementById("startBtn").addEventListener("click", function () {
-			document.getElementById("availability-form").dispatchEvent(new Event("submit"));
-		});
+		// document.getElementById("startBtn").addEventListener("click", function () {
+		// 	document.getElementById("availability-form").dispatchEvent(new Event("submit"));
+		// });
 
 		document.getElementById("stopBtn").addEventListener("click", function () {
 			fetch("/Home/CancelCheck", { method: "POST" })
-				.then(() => console.log("Check cancelled"))
+				.then(() => {
+					this.classList.add("hidden");
+					document.getElementById("pause").classList.add("hidden");
+					document.getElementById("resumeBtn").classList.add("hidden");
+				})
 				.catch(err => alert("Cancel error: " + err.message));
 		});
+		document.getElementById("pause").addEventListener("click", function () {
+			fetch("/Home/PauseCheck", { method: "POST" })
+				.then(() => {
+					console.log("Paused");
+					// Update UI
+					this.classList.add("hidden");
+					document.getElementById("resumeBtn").classList.remove("hidden");
+				})
+				.catch(err => alert("Pause error: " + err.message));
+		});
 
+		document.getElementById("resumeBtn").addEventListener("click", function () {
+			fetch("/Home/ResumeCheck", { method: "POST" })
+				.then(() => {
+					console.log("Resumed");
+					// Update UI
+					this.classList.add("hidden");
+					document.getElementById("pause").classList.remove("hidden");
+				})
+				.catch(err => alert("Resume error: " + err.message));
+		});
+
+		function ImportFile() {
+			document.getElementById("importFile").click();
+		}
+		function uploadFile() {
+			const fileInput = document.getElementById("importFile");
+			if (!fileInput.files.length) {
+				alert("Please select a file first");
+				return;
+			}
+
+			const formData = new FormData();
+			formData.append("domainFile", fileInput.files[0]);
+
+			fetch("/Home/ImportDomains", {
+				method: "POST",
+				body: formData
+			})
+				.then(response => {
+					if (!response.ok) throw new Error("File upload failed");
+					return response.json();  // Expect JSON from server
+				})
+				.then(data => {
+					document.getElementById("domainTextarea").value = data.domains; // note 'domains' plural
+				})
+				.catch(error => alert("Error: " + error.message));
+		}
 	</script>
-
-
 </body>
 </html>
 

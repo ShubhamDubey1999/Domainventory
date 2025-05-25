@@ -2,9 +2,10 @@ using Domainventory.Manager;
 using Domainventory.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using OfficeOpenXml;
+using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace Domainventory.Controllers
@@ -13,7 +14,6 @@ namespace Domainventory.Controllers
 	{
 		private readonly ILogger<HomeController> _logger;
 		private readonly IHubContext<DomainHub> _hubContext;
-		public static CancellationTokenSource TokenSource = new();
 		public HomeController(ILogger<HomeController> logger, IHubContext<DomainHub> hubContext)
 		{
 			_logger = logger;
@@ -385,7 +385,6 @@ namespace Domainventory.Controllers
 		[HttpPost]
 		public async Task<IActionResult> CheckDomains([FromBody] DomainRequest request)
 		{
-			// Cancel any previous operation
 			DomainCheckManager.TokenSource.Cancel();
 			DomainCheckManager.TokenSource = new CancellationTokenSource();
 
@@ -413,6 +412,9 @@ namespace Domainventory.Controllers
 					if (token.IsCancellationRequested)
 						return;
 
+					// Wait here if paused
+					await DomainCheckManager.PauseEvent.WaitAsync();
+
 					if (!IsValidDomain(domain))
 					{
 						Interlocked.Increment(ref errorCount);
@@ -430,6 +432,11 @@ namespace Domainventory.Controllers
 					{
 						Interlocked.Increment(ref availableCount);
 						await _hubContext.Clients.All.SendAsync("DomainChecked", $"{domain} - Available");
+					}
+					catch (SocketException ex) when (ex.SocketErrorCode == SocketError.NoData)
+					{
+						Interlocked.Increment(ref availableCount);
+						await _hubContext.Clients.All.SendAsync("DomainChecked", $"{domain} - Available (No DNS data)");
 					}
 				}
 				catch (Exception ex)
@@ -455,6 +462,7 @@ namespace Domainventory.Controllers
 				}
 			});
 
+
 			await Task.WhenAll(tasks);
 			return Ok("Processing complete.");
 		}
@@ -472,6 +480,85 @@ namespace Domainventory.Controllers
 			DomainCheckManager.TokenSource.Cancel();
 			return Ok("Cancelled");
 		}
+		[HttpPost]
+		public IActionResult PauseCheck()
+		{
+			DomainCheckManager.PauseEvent.Reset();
+			return Ok("Paused");
+		}
 
+		[HttpPost]
+		public IActionResult ResumeCheck()
+		{
+			DomainCheckManager.PauseEvent.Set();
+			return Ok("Resumed");
+		}
+
+		[HttpPost]
+		public async Task<IActionResult> ImportDomains(IFormFile domainFile)
+		{
+			if (domainFile == null || domainFile.Length == 0)
+			{
+				TempData["Error"] = "Please upload a valid file.";
+				return RedirectToAction("Index");
+			}
+
+			var domains = new List<string>();
+
+			using (var stream = new MemoryStream())
+			{
+				await domainFile.CopyToAsync(stream);
+				stream.Position = 0;
+
+				if (domainFile.FileName.EndsWith(".csv"))
+				{
+					using var reader = new StreamReader(stream);
+					bool isFirstLine = true;
+					while (!reader.EndOfStream)
+					{
+						var line = await reader.ReadLineAsync();
+						if (isFirstLine)
+						{
+							isFirstLine = false;
+							continue; // skip header
+						}
+
+						if (!string.IsNullOrWhiteSpace(line))
+						{
+							var cells = line.Split(new[] { ',', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+							domains.AddRange(cells);
+						}
+					}
+				}
+				else if (domainFile.FileName.EndsWith(".xls") || domainFile.FileName.EndsWith(".xlsx"))
+				{
+					ExcelPackage.LicenseContext = OfficeOpenXml.LicenseContext.NonCommercial;
+					using var package = new ExcelPackage(stream);
+					var worksheet = package.Workbook.Worksheets.FirstOrDefault();
+					if (worksheet != null)
+					{
+						int rowCount = worksheet.Dimension.Rows;
+						for (int row = 2; row <= rowCount; row++) // skip header row
+						{
+							for (int col = 1; col <= worksheet.Dimension.Columns; col++)
+							{
+								var value = worksheet.Cells[row, col].Text?.Trim();
+								if (!string.IsNullOrWhiteSpace(value))
+								{
+									var parts = value.Split(new[] { ',', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+									domains.AddRange(parts);
+								}
+							}
+						}
+					}
+				}
+			}
+
+			//var uniqueDomains = domains.Distinct().ToList();
+			var uniqueDomains = domains.ToList();
+
+			return Json(new { domains = string.Join("\n", uniqueDomains) });
+
+		}
 	}
 }
