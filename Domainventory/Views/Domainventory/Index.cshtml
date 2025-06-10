@@ -1,0 +1,253 @@
+﻿@{
+	Layout = null;
+}
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Bulk Domain Availability</title>
+	<link href="~/css/simple-grid.css" rel="stylesheet" />
+	<link href="~/css/style.css" rel="stylesheet" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<!-- Select2 CSS -->
+	<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+	<link rel="icon" type="image/x-icon" href="https://img.icons8.com/?size=100&id=oy0ClRW7oson&format=png&color=000000">
+	<style type="text/css" media="screen" id="css-clm-whois">
+		.clm-whois {
+			display: none;
+		}
+	</style>
+	<style type="text/css" media="screen" id="css-clm-exec-time">
+		.clm-exec-time {
+			display: none;
+		}
+	</style>
+	<style type="text/css" media="screen" id="css-clm-resource">
+		.clm-resource {
+			display: none;
+		}
+
+		#overlay-loader {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100vw;
+			height: 100vh;
+			background-color: rgba(0, 0, 0, 0.7); /* dark translucent background */
+			display: none;
+			justify-content: center;
+			align-items: center;
+			z-index: 9999;
+		}
+
+			#overlay-loader.active {
+				display: flex;
+			}
+
+		#loader-progress-text {
+			font-size: 3rem;
+			color: #fff;
+			font-weight: bold;
+			animation: fadeInOut 1.2s ease-in-out infinite;
+			letter-spacing: 1px;
+			white-space: nowrap; /* prevent vertical wrap */
+			min-width: 3ch; /* enough width for 2-3 digits */
+			text-align: center;
+		}
+
+		@@keyframes fadeInOut {
+			0%, 100% {
+				opacity: 0.8;
+			}
+
+			50% {
+				opacity: 1;
+			}
+		}
+	</style>
+</head>
+<body>
+	<!-- 🔹 Fullscreen Overlay Loader -->
+	<div id="overlay-loader">
+		<div class="loader-text" id="loader-progress-text">0%</div>
+	</div>
+
+
+	<div class="container">
+		<header id="header" class="">
+			<h1>Bulk Domain Availability</h1>
+		</header>
+		<input id="fileName" hidden />
+		<div id="stopwatch-container">
+			<span>Search Time: </span><span id="stopwatch">00:00</span>
+		</div>
+		<form action="" method="post" accept-charset="utf-8" id="availability-form">
+			<div class="row">
+				<div class="col-8">
+					<textarea name="domains" id="domainTextarea" placeholder="Enter domain name with/without extension and separated by spaces or new lines, e.g.:&#10;example.com&#10;facebook twitter&#10;anything" required></textarea>
+				</div>
+				<div class="col-4">
+					<select name="tlds" id="tlds-select" asp-items="@(new SelectList(ViewBag.Tlds))" multiple></select>
+					<div class="row">
+						<div class="col-6">
+							<input type="text" placeholder="Search Domain..." />
+						</div>
+						<div class="col-6 center">
+							<button type="button" onclick="SearchAvaialbleDomain()">Search</button>
+						</div>
+					</div>					
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-3">
+					<input type="text" name="prefix" placeholder="Enter prefix e.g.: the" />
+				</div>
+				<div class="col-3">
+					<input type="text" name="suffix" placeholder="Enter suffix e.g.: online" />
+				</div>
+				<div class="col-2">
+					<input type="number" name="max-length" placeholder="Max length" min="1" max="63" />
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-2">
+					<input type="checkbox" name="combine" value="1" id="combine-a">
+					<label for="combine-a">Combine words</label>
+				</div>
+				<div class="col-2">
+					<input type="checkbox" name="combine" value="2" id="combine-b">
+					<label for="combine-b">Combine "-" as separator</label>
+				</div>
+				<div class="col-2">
+					<input type="checkbox" name="cache" value="1" checked="checked" id="cache">
+					<label for="cache">Save cache</label>
+				</div>
+				<div class="col-6">
+					<div class="col-4 left">
+						<button type="button" id="clear-cache" class="error" style="word-break:keep-all;">Clear Cache</button>
+					</div>
+					<div class="col-4 center">
+						<button type="reset" class="warning">Reset</button>
+					</div>
+					<div class="col-4 right">
+						<button type="submit" id="search">Search</button>
+						<button type="button" id="pause" class="hidden">Pause</button>
+						<button type="button" id="resume" class="hidden">Resume</button>
+						<button type="button" id="stop" class="error hidden">Stop</button>
+					</div>
+				</div>
+				<div class="col-12">
+					<div class="col-3">
+						<input type="file" onchange="uploadFile()" hidden id="importFile" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" />
+						<button type="button" onclick="ImportFile()" id="impfile">Import File</button>
+					</div>
+					<div class="col-3">
+						<button type="button" id="export-csv" class="success">Export CSV</button>
+					</div>
+					@* <div class="col-3">
+						<button type="button" id="export-excel" class="success">Export Excel</button>
+					</div> *@
+					<div class="col-3">
+						<button onclick="DownloadSample()" type="button" class="success">Download Sample File</button>
+					</div>
+				</div>
+			</div>
+		</form>
+
+		<div class="row result hidden">
+			<div class="col-12">
+				<div class="result-title">
+					<h2>Result</h2>
+				</div>
+			</div>
+			<div class="col-2">
+				<h5>Progress:</h5>
+				<div class="clearfix"></div>
+				<h5><span id="domains-checked">0</span>/<span id="domains-length">0</span> (<span id="progress">0</span>)%</h5>
+				<div class="clearfix"></div>
+				<h5>Checking:</h5>
+				<div class="clearfix"></div>
+				<h5 id="checking"><span></span></h5>
+			</div>
+			<div class="col-2">
+				<h5 id="available-counter" class="success">Available: <span>0</span></h5>
+				<div class="clearfix"></div>
+				<h5 id="unavailable-counter" class="warning">Unavailable: <span class="warning">0</span></h5>
+				<div class="clearfix"></div>
+				<h5 id="error-counter" class="error">Error: <span class="error">0</span> <label class="retry-error hidden">(<a href="javascript:void(0)" id="retry-error">retry</a>)</label></h5>
+			</div>
+			<div class="col-2">
+				<input type="checkbox" name="hide-unavailable" value="1" id="hide-unavailable">
+				<label for="hide-unavailable">Hide unavailable</label>
+			</div>
+			<div class="col-2">
+				<input type="checkbox" name="hide-whois" value="1" checked="checked" id="hide-whois">
+				<label for="hide-whois">Hide whois server</label>
+			</div>
+			<div class="col-2">
+				<input type="checkbox" name="hide-exec-time" value="1" checked="checked" id="hide-exec-time">
+				<label for="hide-exec-time">Hide execute time</label>
+			</div>
+			<div class="col-2">
+				<input type="checkbox" name="hide-resource" value="1" checked="checked" id="hide-resource">
+				<label for="hide-resource">Hide resource</label>
+			</div>
+			<div class="clearfix"></div>
+			<div class="col-12">
+				<div class="col-6" style="margin:0% !important;">
+					<div class="pagination-controls">
+						<label for="rowsPerPage">Rows per page:</label>
+						<select id="rowsPerPage" style="width:16%;height:2%;">
+							<option value="10">10</option>
+							<option value="25">25</option>
+							<option value="50" selected>50</option>
+							<option value="100">100</option>
+							<option value="all">All</option>
+						</select>
+					</div>
+				</div>
+				<div class="col-2">
+					<input type="text" id="tableSearch" placeholder="Search domains..." style="width: 100%; padding: 5px;" />
+				</div>
+				<div class="col-4 right">
+					<div class="pagination-controls" id="paginationControls">
+						<button id="prevPage" disabled>Previous</button>
+						<span>Page <span id="currentPage">1</span> of <span id="totalPages">?</span></span>
+						<button id="nextPage" disabled>Next</button>
+					</div>
+				</div>
+				<table id="result-table">
+					<thead>
+						<tr>
+							<th>ID</th>
+							<th>Domain</th>
+							<th>Availability</th>
+							<th>Length</th>
+							<th>Message</th>
+							<th class="clm-whois">Whois Server</th>
+							<th class="clm-resource">Resource</th>
+							<th class="clm-exec-time">Execute Time</th>
+							<th>Actions</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
+
+		<div class="row">
+			<div class="col-12">
+				<footer>
+					<span>Copyright &copy; <span id="">@DateTime.UtcNow.Year.ToString()</span> <a href="https://github.com/ShubhamDubey1999/Domainventory" target="_blank">~sdev</a></span>
+				</footer>
+			</div>
+		</div>
+	</div>
+	<script src="~/lib/jquery/dist/jquery.min.js"></script>
+	<script src="~/lib/jquery/dist/jquery.js"></script>
+	<script src="~/js/table2csv.js"></script>
+	<script src="~/js/custom-domain-checker2.js" asp-append-version="true"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+</body>
+</html>

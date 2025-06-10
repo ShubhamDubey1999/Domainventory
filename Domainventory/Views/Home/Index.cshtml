@@ -8,7 +8,7 @@
 	<title>Bulk Domain Availability</title>
 	<link href="~/css/simple-grid.css" rel="stylesheet" />
 	<link href="~/css/style.css" rel="stylesheet" />
-
+	<link rel="icon" type="image/x-icon" href="https://img.icons8.com/?size=100&id=oy0ClRW7oson&format=png&color=000000">
 	<style type="text/css" media="screen" id="css-clm-whois">
 		.clm-whois {
 			display: none;
@@ -24,6 +24,18 @@
 			display: none;
 		}
 	</style>
+	<style>
+		#stopwatch-container {
+			font-size: 1.2rem;
+			margin-bottom: 15px;
+		}
+
+		#stopwatch {
+			font-weight: bold;
+			color: green;
+		}
+	</style>
+
 </head>
 <body>
 	<div class="container">
@@ -31,10 +43,8 @@
 		<header id="header" class="">
 			<h1>Bulk Domain Availability</h1>
 		</header>
-		<!-- / End header -->
-		<div id="loader" class="hidden">
-			<div class="spinner"></div>
-			<p>Importing domains...</p>
+		<div id="stopwatch-container">
+			<span>Search Time: </span><span id="stopwatch">00:00</span>
 		</div>
 
 		<form action="" method="post" accept-charset="utf-8" id="availability-form">
@@ -89,7 +99,7 @@
 						<button type="button" onclick="ImportFile()" id="impfile">Import File</button>
 					</div>
 					<div class="col-4">
-						<a href="/sample/sample_domains.csv" download>Download Sample File</a>
+						<a href="/sample/DomainName.xlsx" download>Download Sample File</a>
 					</div>
 					<div class="col-2">
 						<button type="button" id="pause" class="hidden">Pause</button>
@@ -170,12 +180,6 @@
 				</table>
 			</div>
 		</div>
-		<div id="loader" class="hidden">Importing...</div>
-		<div class="progress mb-3" style="height: 25px; display: none;" id="importProgressContainer">
-			<div id="importProgressBar" class="progress-bar" role="progressbar" style="width: 0%">
-				<span id="importProgressText">0%</span>
-			</div>
-		</div>
 		<!-- Start footer -->
 		<div class="row">
 			<div class="col-12">
@@ -192,13 +196,32 @@
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 	<script>
+		let stopwatchInterval;
+		let startTime;
+
+		function startStopwatch() {
+			clearInterval(stopwatchInterval); // prevent multiple intervals
+			startTime = new Date().getTime();
+
+			stopwatchInterval = setInterval(() => {
+				const elapsed = new Date().getTime() - startTime;
+				const minutes = Math.floor(elapsed / 60000).toString().padStart(2, '0');
+				const seconds = Math.floor((elapsed % 60000) / 1000).toString().padStart(2, '0');
+				document.getElementById('stopwatch').textContent = `${minutes}:${seconds}`;
+			}, 1000);
+		}
+
+		function stopStopwatch() {
+			clearInterval(stopwatchInterval);
+		}
+
+		// SignalR connection and form submit
 		const connection = new signalR.HubConnectionBuilder()
 			.withUrl("/domainHub")
 			.configureLogging(signalR.LogLevel.Information)
 			.build();
 
 		let totalDomains = 0;
-		let checkedDomains = 0;
 
 		connection.on("DomainChecked", function (result) {
 			const tbody = document.querySelector("#result-table tbody");
@@ -208,10 +231,12 @@
 			const domain = parts.shift();
 			const status = parts.join(" - ");
 
-			let statusClass = "";
-			let actionHtml = "";
-
-			if (status.toLowerCase().includes("unavailable")) {
+			let statusClass = "", actionHtml = "";
+			if (status.toLowerCase().includes("whois")) {
+				statusClass = "unavailable-row";
+				actionHtml = `<a href="https://whois.domaintools.com/${domain}" target="_blank">Whois</a>`;
+			}
+			else if (status.toLowerCase().includes("unavailable")) {
 				statusClass = "unavailable-row";
 				actionHtml = `<a href="http://${domain}" target="_blank">Visit</a>`;
 			} else if (status.toLowerCase().includes("available")) {
@@ -220,18 +245,18 @@
 			}
 
 			row.className = statusClass;
-
 			row.innerHTML = `
-																			<td>${currentIndex}</td>
-																			<td>${domain}</td>
-																			<td>${status}</td>
-																			<td>${domain.length}</td>
-																			<td>-</td>
-																			<td class="clm-whois">-</td>
-																			<td class="clm-resource">-</td>
-																			<td class="clm-exec-time">-</td>
-																			<td>${actionHtml}</td>
-																		`;
+					<td>${currentIndex}</td>
+					<td>${domain}</td>
+					<td>${status}</td>
+					<td>${domain.length}</td>
+					<td>-</td>
+					<td class="clm-whois">-</td>
+					<td class="clm-resource">-</td>
+					<td class="clm-exec-time">-</td>
+					<td>${actionHtml}</td>
+				`;
+
 			if (status.toLowerCase().includes("unavailable") || status.toLowerCase().includes("invalid")) {
 				row.classList.add("error");
 			}
@@ -243,12 +268,15 @@
 			document.querySelector("#unavailable-counter").textContent = data.unavailable;
 			document.querySelector("#error-counter").textContent = data.error;
 
-
 			document.getElementById("domains-checked").textContent = data.processed;
 			document.getElementById("domains-length").textContent = data.total;
 			document.getElementById("progress").textContent = Math.floor((data.processed / data.total) * 100);
-		});
 
+			// Stop stopwatch if done
+			if (data.processed >= data.total) {
+				stopStopwatch();
+			}
+		});
 
 		connection.start().then(() => {
 			console.log("SignalR connected.");
@@ -260,39 +288,23 @@
 				const domains = domainText.split(/[\s\n]+/).filter(Boolean);
 				const tlds = Array.from(tldOptions).map(opt => opt.value);
 
-				const requestData = {
-					domains,
-					tlds
-				};
+				const requestData = { domains, tlds };
+				totalDomains = tlds.length ? domains.length * tlds.length : domains.length;
 
-				if (tlds.length != 0) {
-					totalDomains = domains.length * tlds.length;
-				}
-				else {
-					totalDomains = domains.length;
-				}
-				checkedDomains = 0;
-
-				// Reset progress UI
+				// Reset progress
 				document.getElementById("domains-length").textContent = totalDomains;
 				document.getElementById("domains-checked").textContent = "0";
 				document.getElementById("progress").textContent = "0";
-
-
-				// Clear table
 				document.querySelector("#result-table tbody").innerHTML = "";
-
-				// Show result section
 				document.querySelector(".result").classList.remove("hidden");
 				document.querySelector("#stopBtn").classList.remove("hidden");
-				// document.querySelector("#resumeBtn").classList.remove("hidden");
 				document.querySelector("#pause").classList.remove("hidden");
+
+				startStopwatch(); // 🔹 START stopwatch
 
 				fetch("/Home/CheckDomains", {
 					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
+					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify(requestData)
 				}).then(res => {
 					if (!res.ok) throw new Error("Failed to check domains");
@@ -303,37 +315,33 @@
 		}).catch(err => {
 			console.error("SignalR connection failed:", err.toString());
 		});
+
 		document.getElementById("hide-unavailable").addEventListener("change", function () {
 			const hide = this.checked;
-			const rows = document.querySelectorAll("#result-table tbody tr.unavailable-row");
-
-			rows.forEach(row => {
+			document.querySelectorAll("#result-table tbody tr.unavailable-row").forEach(row => {
 				row.style.display = hide ? "none" : "";
 			});
 		});
+
 		document.getElementById("exportBtn").addEventListener("click", function () {
-			$("#result-table").table2csv("download", {
-				filename: "domain-results.csv"
-			});
+			$("#result-table").table2csv("download", { filename: "domain-results.csv" });
 		});
-		// document.getElementById("startBtn").addEventListener("click", function () {
-		// 	document.getElementById("availability-form").dispatchEvent(new Event("submit"));
-		// });
 
 		document.getElementById("stopBtn").addEventListener("click", function () {
 			fetch("/Home/CancelCheck", { method: "POST" })
 				.then(() => {
+					stopStopwatch();
 					this.classList.add("hidden");
 					document.getElementById("pause").classList.add("hidden");
 					document.getElementById("resumeBtn").classList.add("hidden");
 				})
 				.catch(err => alert("Cancel error: " + err.message));
 		});
+
 		document.getElementById("pause").addEventListener("click", function () {
 			fetch("/Home/PauseCheck", { method: "POST" })
 				.then(() => {
-					console.log("Paused");
-					// Update UI
+					clearInterval(stopwatchInterval);
 					this.classList.add("hidden");
 					document.getElementById("resumeBtn").classList.remove("hidden");
 				})
@@ -343,17 +351,22 @@
 		document.getElementById("resumeBtn").addEventListener("click", function () {
 			fetch("/Home/ResumeCheck", { method: "POST" })
 				.then(() => {
-					console.log("Resumed");
-					// Update UI
+					startStopwatch();
 					this.classList.add("hidden");
 					document.getElementById("pause").classList.remove("hidden");
 				})
 				.catch(err => alert("Resume error: " + err.message));
 		});
 
+		document.querySelector("form").addEventListener("reset", () => {
+			stopStopwatch();
+			document.getElementById('stopwatch').textContent = '00:00';
+		});
+
 		function ImportFile() {
 			document.getElementById("importFile").click();
 		}
+
 		function uploadFile() {
 			const fileInput = document.getElementById("importFile");
 			if (!fileInput.files.length) {
@@ -370,10 +383,12 @@
 			})
 				.then(response => {
 					if (!response.ok) throw new Error("File upload failed");
-					return response.json();  // Expect JSON from server
+					return response.json();
 				})
 				.then(data => {
-					document.getElementById("domainTextarea").value = data.domains; // note 'domains' plural
+					document.getElementById("domainTextarea").value = data.domains;
+					stopStopwatch(); // 🔹 reset on import
+					document.getElementById('stopwatch').textContent = '00:00';
 				})
 				.catch(error => alert("Error: " + error.message));
 		}

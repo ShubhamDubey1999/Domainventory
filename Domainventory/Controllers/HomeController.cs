@@ -1,25 +1,41 @@
+using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Domainventory.Manager;
 using Domainventory.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
-using OfficeOpenXml;
-using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Domainventory.Controllers
 {
 	public class HomeController : Controller
 	{
+		private readonly IWebHostEnvironment _environment;
 		private readonly ILogger<HomeController> _logger;
 		private readonly IHubContext<DomainHub> _hubContext;
-		public HomeController(ILogger<HomeController> logger, IHubContext<DomainHub> hubContext)
+		Dictionary<string, WhoisServerInfo> _whoisServers;
+		public HomeController(ILogger<HomeController> logger, IHubContext<DomainHub> hubContext, IWebHostEnvironment environment)
 		{
 			_logger = logger;
 			_hubContext = hubContext;
+			_environment = environment;
+			_whoisServers = LoadWhoisServers();
 		}
+		private Dictionary<string, WhoisServerInfo> LoadWhoisServers()
+		{
+			var path = Path.Combine(_environment.WebRootPath,"js", "servers.json");
+			var json = System.IO.File.ReadAllText(path);
 
+			var options = new JsonSerializerOptions
+			{
+				PropertyNameCaseInsensitive = true
+			};
+
+			return JsonSerializer.Deserialize<Dictionary<string, WhoisServerInfo>>(json, options);
+		}
 		public IActionResult Index()
 		{
 			ViewBag.Tlds = Tlds();
@@ -428,6 +444,38 @@ namespace Domainventory.Controllers
 						Interlocked.Increment(ref unavailableCount);
 						await _hubContext.Clients.All.SendAsync("DomainChecked", $"{domain} - Unavailable");
 					}
+					catch (SocketException ex) when (ex.SocketErrorCode == SocketError.HostNotFound || ex.SocketErrorCode == SocketError.NoData)
+					{
+						var tld = domain.Split('.').LastOrDefault()?.ToLower();
+						if (tld != null && _whoisServers.TryGetValue(tld, out var whoisInfo))
+						{
+							try
+							{
+								var whoisResponse = await QueryWhoisServer(whoisInfo.Server, domain);
+
+								if (whoisResponse.Contains(whoisInfo.NotFound, StringComparison.OrdinalIgnoreCase))
+								{
+									Interlocked.Increment(ref availableCount);
+									await _hubContext.Clients.All.SendAsync("DomainChecked", $"{domain} - Available (WHOIS)");
+								}
+								else
+								{
+									Interlocked.Increment(ref unavailableCount);
+									await _hubContext.Clients.All.SendAsync("DomainChecked", $"{domain} - Unavailable (WHOIS)");
+								}
+							}
+							catch (Exception whoisEx)
+							{
+								Interlocked.Increment(ref errorCount);
+								await _hubContext.Clients.All.SendAsync("DomainChecked", $"{domain} - WHOIS error: {whoisEx.Message}");
+							}
+						}
+						else
+						{
+							Interlocked.Increment(ref availableCount); // fallback if WHOIS info not found
+							await _hubContext.Clients.All.SendAsync("DomainChecked", $"{domain} - Available (No DNS data)");
+						}
+					}
 					catch (SocketException ex) when (ex.SocketErrorCode == SocketError.HostNotFound)
 					{
 						Interlocked.Increment(ref availableCount);
@@ -465,6 +513,18 @@ namespace Domainventory.Controllers
 
 			await Task.WhenAll(tasks);
 			return Ok("Processing complete.");
+		}
+		private async Task<string> QueryWhoisServer(string server, string domain)
+		{
+			using var tcpClient = new TcpClient();
+			await tcpClient.ConnectAsync(server, 43);
+
+			using var stream = tcpClient.GetStream();
+			using var writer = new StreamWriter(stream) { AutoFlush = true };
+			using var reader = new StreamReader(stream);
+
+			await writer.WriteLineAsync(domain);
+			return await reader.ReadToEndAsync();
 		}
 
 
@@ -532,17 +592,19 @@ namespace Domainventory.Controllers
 				}
 				else if (domainFile.FileName.EndsWith(".xls") || domainFile.FileName.EndsWith(".xlsx"))
 				{
-					ExcelPackage.LicenseContext = OfficeOpenXml.LicenseContext.NonCommercial;
-					using var package = new ExcelPackage(stream);
-					var worksheet = package.Workbook.Worksheets.FirstOrDefault();
+					using var workbook = new XLWorkbook(stream);
+					var worksheet = workbook.Worksheets.FirstOrDefault();
 					if (worksheet != null)
 					{
-						int rowCount = worksheet.Dimension.Rows;
+						domains = new List<string>();
+						var rowCount = worksheet.LastRowUsed().RowNumber();
+						var colCount = worksheet.LastColumnUsed().ColumnNumber();
+
 						for (int row = 2; row <= rowCount; row++) // skip header row
 						{
-							for (int col = 1; col <= worksheet.Dimension.Columns; col++)
+							for (int col = 1; col <= colCount; col++)
 							{
-								var value = worksheet.Cells[row, col].Text?.Trim();
+								var value = worksheet.Cell(row, col).GetValue<string>().Trim();
 								if (!string.IsNullOrWhiteSpace(value))
 								{
 									var parts = value.Split(new[] { ',', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);

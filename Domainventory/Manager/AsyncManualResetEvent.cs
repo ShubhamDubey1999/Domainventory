@@ -9,7 +9,10 @@
 			if (initialState)
 				_tcs.SetResult(true);
 		}
-
+		public Task WaitAsync(CancellationToken token)
+		{
+			return _tcs.Task.WaitAsync(token); // .NET 6+
+		}
 		public Task WaitAsync() => _tcs.Task;
 
 		public void Set()

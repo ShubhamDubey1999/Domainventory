@@ -1,10 +1,20 @@
 using Domainventory.Models;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 var builder = WebApplication.CreateBuilder(args);
-
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
+builder.Services.Configure<KestrelServerOptions>(options =>
+{
+	options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(10);
+	options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(2);
+});
+builder.Services.AddSignalR(options =>
+{
+    options.KeepAliveInterval = TimeSpan.FromSeconds(30); // default is 15s
+    options.ClientTimeoutInterval = TimeSpan.FromMinutes(5); // default is 30s
+});
 
 var app = builder.Build();
 
@@ -25,6 +35,6 @@ app.UseAuthorization();
 app.MapHub<DomainHub>("/domainHub");
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+    pattern: "{controller=Domainventory}/{action=Index}/{id?}");
 
 app.Run();
