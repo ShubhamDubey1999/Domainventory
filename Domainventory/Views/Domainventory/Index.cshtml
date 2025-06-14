@@ -10,7 +10,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<!-- Select2 CSS -->
 	<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-	<link rel="icon" type="image/x-icon" href="https://img.icons8.com/?size=100&id=oy0ClRW7oson&format=png&color=000000">
+	<link rel="icon" type="image/x-icon" href="~/Image/programming.png">
 	<style type="text/css" media="screen" id="css-clm-whois">
 		.clm-whois {
 			display: none;
@@ -87,26 +87,22 @@
 				</div>
 				<div class="col-4">
 					<select name="tlds" id="tlds-select" asp-items="@(new SelectList(ViewBag.Tlds))" multiple></select>
-					<div class="row">
-						<div class="col-6">
-							<input type="text" placeholder="Search Domain..." />
-						</div>
-						<div class="col-6 center">
-							<button type="button" onclick="SearchAvaialbleDomain()">Search</button>
-						</div>
-					</div>					
 				</div>
 			</div>
 			<div class="row">
 				<div class="col-3">
-					<input type="text" name="prefix" placeholder="Enter prefix e.g.: the" />
+					<input type="text" name="prefix" placeholder="Enter prefix e.g.: the" autocomplete="off" />
 				</div>
 				<div class="col-3">
-					<input type="text" name="suffix" placeholder="Enter suffix e.g.: online" />
+					<input type="text" name="suffix" placeholder="Enter suffix e.g.: online" autocomplete="off" />
 				</div>
 				<div class="col-2">
 					<input type="number" name="max-length" placeholder="Max length" min="1" max="63" />
 				</div>
+				<div class="col-4">
+					<button type="button" class="success" onclick="openModal()">Get Domain Suggestion</button>
+				</div>
+
 			</div>
 			<div class="row">
 				<div class="col-2">
@@ -144,7 +140,7 @@
 						<button type="button" id="export-csv" class="success">Export CSV</button>
 					</div>
 					@* <div class="col-3">
-						<button type="button" id="export-excel" class="success">Export Excel</button>
+					<button type="button" id="export-excel" class="success">Export Excel</button>
 					</div> *@
 					<div class="col-3">
 						<button onclick="DownloadSample()" type="button" class="success">Download Sample File</button>
@@ -249,5 +245,16 @@
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+	<div id="domainModal" class="hidden">
+		<div class="modal-box">
+			<h2>Verify Domain</h2>
+			<input type="text" id="domainInput" placeholder="Enter domain (e.g. example.com)" />
+			<div style="margin-top: 10px;">
+				<button class="success" onclick="SearchAvaialbleDomain()">Verify</button>
+				<button type="button" onclick="closeModal()">Close</button>
+			</div>
+			<div id="verifyResult" style="margin-top: 15px;"></div>
+		</div>
+	</div>
 </body>
 </html>

@@ -103,6 +103,7 @@ $(document).ready(function () {
             tlds: tlds,
             suffix: $('input[name="suffix"]').val(),
             prefix: $('input[name="prefix"]').val(),
+            maxlength: parseInt($('input[name="max-length"]').val()) || 0,
         };
 
         pollProgress();
@@ -290,6 +291,87 @@ function applyTableFilter() {
         row.style.display = matchFound ? "" : "none";
     });
 }
-function SearchAvaialbleDomain() {
-    alert("Under Development...")
+function openModal() {
+    document.getElementById("domainModal").classList.remove("hidden");
+    document.getElementById("domainModal").classList.add("modal-overlay");
 }
+
+function closeModal() {
+    document.getElementById("domainModal").classList.add("hidden");
+    document.getElementById("domainModal").classList.remove("modal-overlay");
+}
+
+function verifyDomain() {
+    const domain = document.getElementById("domainInput").value;
+    alert("Verifying: " + domain);
+    // You can hook this into your backend later
+}
+function SearchAvaialbleDomain() {
+    const domain = $("#domainInput").val().trim();
+    const resultDiv = $("#verifyResult");
+    resultDiv.html("");
+
+    if (!domain) {
+        alert("Please enter a domain.");
+        return;
+    }
+
+    resultDiv.html("<p class='warning'>Verifying...</p>");
+
+    $.ajax({
+        url: "Domainventory/SuggestedAvailableDomains?domain=" + encodeURIComponent(domain),
+        type: 'GET',
+        success: function (response) {
+            resultDiv.empty();
+            console.log(response);
+
+            // Show availability status
+            const status = $("<p>")
+                .addClass(response.available ? "success" : "error")
+                .text(response.available ? "✅ Domain is available!" : "❌ Domain is not available.");
+            resultDiv.append(status);
+
+            // Show suggestions if any
+            if (response.suggestions && response.suggestions.length > 0) {
+                const title = $("<h4>").text("Suggested Domains:");
+                resultDiv.append(title);
+
+                const container = $("<div>").css({
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "10px",
+                    marginTop: "10px"
+                });
+
+                response.suggestions.forEach(function (s) {
+                    const suggestionBox = $("<div>").css({
+                        border: "1px solid #11AA11",
+                        padding: "8px 12px",
+                        borderRadius: "5px",
+                        backgroundColor: "#111111",
+                        color: "#11AA11",
+                        fontSize: "13px"
+                    });
+
+                    const link = $("<a>")
+                        .attr("href", "https://" + s)
+                        .attr("target", "_blank")
+                        .css({
+                            color: "#11AA11",
+                            textDecoration: "none"
+                        })
+                        .text(s);
+
+                    suggestionBox.append(link);
+                    container.append(suggestionBox);
+                });
+
+                resultDiv.append(container);
+            }
+        },
+        error: function (xhr) {
+            resultDiv.html("<p class='error'>Error: " + xhr.responseText + "</p>");
+        }
+    });
+}
+

@@ -9,6 +9,7 @@ namespace Domainventory.Models
 		public List<string> Tlds { get; set; } = new();
         public string Suffix { get; set; }
         public string Prefix { get; set; }
+		public int Maxlength { get; set; } = 0;
     }
 	public class DomainCheckSummary
 	{

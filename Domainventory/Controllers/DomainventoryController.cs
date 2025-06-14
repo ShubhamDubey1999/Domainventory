@@ -85,10 +85,11 @@ namespace Domainventory.Controllers
 			var stopwatch = Stopwatch.StartNew();
 			var hasPrefixOrSuffix = !string.IsNullOrEmpty(request.Prefix) || !string.IsNullOrEmpty(request.Suffix);
 			var hasTlds = request.Tlds?.Any() == true;
-			var domainsToCheck = hasTlds
-				? request.Domains.SelectMany(d => request.Tlds.Select(tld => $"{(hasPrefixOrSuffix ? request.Prefix + d + request.Suffix : d)}.{tld}")).ToList()
-				: request.Domains.Select(d => hasPrefixOrSuffix ? request.Prefix + d + request.Suffix : d).ToList();
-
+			var domainsToCheck = request.Domains
+								.Select(d => hasPrefixOrSuffix ? $"{request.Prefix}{d}{request.Suffix}" : d)
+								.SelectMany(d => hasTlds ? request.Tlds.Select(tld => $"{d}.{tld}") : new[] { d })
+								.Where(d => request.Maxlength == 0 || d.Split(".")[0].Length == request.Maxlength)
+								.ToList();
 			progress.Total = domainsToCheck.Count;
 			_progressStore[requestId] = progress;
 
@@ -524,5 +525,112 @@ namespace Domainventory.Controllers
 			return PhysicalFile(filePath, contentType, "domain-results.csv");
 		}
 
+		[HttpGet]
+		public async Task<IActionResult> SuggestedAvailableDomains(string domain)
+		{
+			if (string.IsNullOrWhiteSpace(domain) || !IsValidDomain(domain))
+				return BadRequest("Invalid or missing domain.");
+
+			var originalDomainAvailable = await CheckDomainAvailabilityInternal(domain);
+
+			var suggestions = GenerateDomainSuggestions(domain);
+			var availableSuggestions = new ConcurrentBag<string>();
+
+			var semaphore = new SemaphoreSlim(10);
+
+			var tasks = suggestions.Select(async suggestion =>
+			{
+				await semaphore.WaitAsync();
+
+				try
+				{
+					if (await CheckDomainAvailabilityInternal(suggestion))
+						availableSuggestions.Add(suggestion);
+				}
+				finally
+				{
+					semaphore.Release();
+				}
+			});
+
+			await Task.WhenAll(tasks);
+
+			return Ok(new
+			{
+				Available = originalDomainAvailable,
+				Suggestions = availableSuggestions.Distinct().OrderBy(x => x).ToList()
+			});
+		}
+
+
+
+		private async Task<bool> CheckDomainAvailabilityInternal(string domain)
+		{
+			if (!IsValidDomain(domain))
+				return false;
+
+			try
+			{
+				// DNS Check
+				var entry = await GetHostEntryWithTimeout(domain, TimeSpan.FromSeconds(2));
+				if (entry?.AddressList?.FirstOrDefault() != null)
+					return false; // Has IP = taken
+
+				// WHOIS Check
+				var tld = domain.Split('.').LastOrDefault()?.ToLower();
+				if (tld != null && _whoisServers.TryGetValue(tld, out var whoisInfo))
+				{
+					var response = await QueryWhoisServerWithTimeout(whoisInfo.Server, domain, TimeSpan.FromSeconds(3));
+					return response.Contains(whoisInfo.NotFound, StringComparison.OrdinalIgnoreCase);
+				}
+			}
+			catch (SocketException ex) when (ex.SocketErrorCode == SocketError.HostNotFound || ex.SocketErrorCode == SocketError.NoData)
+			{
+				// DNS failed, try WHOIS
+				var tld = domain.Split('.').LastOrDefault()?.ToLower();
+				if (tld != null && _whoisServers.TryGetValue(tld, out var whoisInfo))
+				{
+					try
+					{
+						var response = await QueryWhoisServerWithTimeout(whoisInfo.Server, domain, TimeSpan.FromSeconds(3));
+						return response.Contains(whoisInfo.NotFound, StringComparison.OrdinalIgnoreCase);
+					}
+					catch
+					{
+						return false;
+					}
+				}
+			}
+			catch
+			{
+				// Any other error = treat as unavailable
+			}
+
+			return false;
+		}
+
+
+		private List<string> GenerateDomainSuggestions(string domain)
+		{
+			var baseName = domain.Split('.')[0]; // Extract domain name without TLD
+			var tld = domain.Substring(domain.LastIndexOf(".")); // Extract TLD
+
+			var commonSuffixes = new List<string> { "Group", "Solutions", "Consulting", "Analytics", "Tech", "Hub", "Experts", "Network", "Visionary" };
+			var commonHyphenated = new List<string> { "-D", "-Tech", "-Solutions", "-Analytics", "-Consulting" };
+
+			var suggestions = new List<string>();
+
+			// Add hyphenated variations
+			suggestions.AddRange(commonHyphenated.Select(suffix => $"{baseName}{suffix}{tld}"));
+
+			// Add common suffix-based variations
+			suggestions.AddRange(commonSuffixes.Select(suffix => $"{baseName}{suffix}{tld}"));
+
+			// Generate alternate TLD suggestions
+			var alternateTlds = new List<string> { ".net", ".org", ".co", ".info", ".ai" };
+			suggestions.AddRange(alternateTlds.Select(altTld => $"{baseName}{altTld}"));
+
+			return suggestions.Distinct().ToList();
+		}
 	}
 }
