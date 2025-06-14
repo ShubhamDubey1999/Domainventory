@@ -7,6 +7,8 @@ using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Diagnostics;
 using System.Text;
+using System.Net.Http.Headers;
+using Newtonsoft.Json.Linq;
 
 namespace Domainventory.Controllers
 {
@@ -16,18 +18,15 @@ namespace Domainventory.Controllers
 		private static readonly SemaphoreSlim _csvWriteSemaphore = new SemaphoreSlim(1, 1);
 		Dictionary<string, WhoisServerInfo> _whoisServers;
 		private readonly IWebHostEnvironment _environment;
-		//private static readonly ConcurrentDictionary<string, bool> DomainValidationCache = new();
+		private IConfiguration _config;
 		private static readonly Regex DomainRegex = new(@"^(?!-)(?:[A-Za-z0-9-]{1,63}\.)+[A-Za-z]{2,}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-		//private static bool IsValidDomain(string domain)
-		//{
-		//	return DomainValidationCache.GetOrAdd(domain, d => DomainRegex.IsMatch(d));
-		//}
 		private static bool IsValidDomain(string domain) => DomainRegex.IsMatch(domain);
 
-		public DomainventoryController(IWebHostEnvironment environment)
+		public DomainventoryController(IWebHostEnvironment environment, IConfiguration configuration)
 		{
 			_environment = environment;
 			_whoisServers = LoadWhoisServers();
+			this._config = configuration;
 		}
 		private Dictionary<string, WhoisServerInfo> LoadWhoisServers()
 		{
@@ -46,6 +45,13 @@ namespace Domainventory.Controllers
 			ViewBag.Tlds = _whoisServers.Keys.ToList();
 			return View();
 		}
+
+		public IActionResult Index2()
+		{
+			ViewBag.Tlds = _whoisServers.Keys.ToList();
+			return View();
+		}
+
 
 		[HttpPost]
 		public async Task<IActionResult> CheckDomains([FromBody] DomainRequest request, string requestId, CancellationToken cancellationToken)
@@ -631,6 +637,70 @@ namespace Domainventory.Controllers
 			suggestions.AddRange(alternateTlds.Select(altTld => $"{baseName}{altTld}"));
 
 			return suggestions.Distinct().ToList();
+		}
+		public async Task<IActionResult> AISuggestDomains(string prompt)
+		{
+			if (string.IsNullOrWhiteSpace(prompt))
+			{
+				return BadRequest("Prompt cannot be empty.");
+			}
+
+			var aiResponse = await GetDomainSuggestionsFromAI(prompt);
+
+			if (string.IsNullOrWhiteSpace(aiResponse))
+			{
+				return StatusCode(500, "AI service failed to return suggestions.");
+			}
+
+			// Extract domain list from response (naive split for now)
+			var suggestions = aiResponse
+				.Split(new[] { '\n', ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+				.Select(s => s.Trim().Trim('-', '.', '•'))
+				.Where(s => s.Length > 3)
+				.ToList();
+
+			return Ok(new { suggestions });
+		}
+
+		private async Task<string> GetDomainSuggestionsFromAI(string prompt)
+		{
+			var endpoint = _config["AISearch:Endpoint"];
+			var secretKey = _config["AISearch:SecretKey"];
+			var host = _config["AISearch:Host"];
+
+			if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(secretKey) || string.IsNullOrWhiteSpace(host))
+			{
+				throw new InvalidOperationException("AI Search configuration is missing.");
+			}
+
+			var client = new HttpClient();
+
+			var request = new HttpRequestMessage
+			{
+				Method = HttpMethod.Post,
+				RequestUri = new Uri(endpoint),
+				Headers =
+				{
+					{ "x-rapidapi-key", secretKey },
+					{ "x-rapidapi-host", host }
+				},
+				Content = new StringContent(
+					$"{{\"messages\":[{{\"role\":\"user\",\"content\":\"{prompt}\"}}],\"web_access\":false}}")
+				{
+					Headers =
+					{
+						ContentType = new MediaTypeHeaderValue("application/json")
+					}
+				}
+			};
+
+			using var response = await client.SendAsync(request);
+			response.EnsureSuccessStatusCode();
+			var body = await response.Content.ReadAsStringAsync();
+			var json = JObject.Parse(body);
+			var reply = json["result"]?.ToString() ?? "No response from AI.";
+
+			return reply;
 		}
 	}
 }

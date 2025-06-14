@@ -2,259 +2,434 @@
 	Layout = null;
 }
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-	<title>Bulk Domain Availability</title>
-	<link href="~/css/simple-grid.css" rel="stylesheet" />
-	<link href="~/css/style.css" rel="stylesheet" />
+	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<!-- Select2 CSS -->
-	<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+	<title>Domain Dash</title>
+	<link rel="stylesheet"
+		  href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" />
+	<link rel="stylesheet"
+		  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css"
+		  integrity="sha512-5A8nwdMOWrSz20fDsjczgUidUBR8liPYU+WymTZP1lmY9G6Oc7HlZv156XqnsgNUzTyMefFTcsFH/tnJE/+xBg=="
+		  crossorigin="anonymous"
+		  referrerpolicy="no-referrer" />
+	<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+		  rel="stylesheet" />
+	<link href="~/css/domainventoryindex.css" rel="stylesheet" />
 	<link rel="icon" type="image/x-icon" href="~/Image/programming.png">
-	<style type="text/css" media="screen" id="css-clm-whois">
-		.clm-whois {
-			display: none;
-		}
-	</style>
-	<style type="text/css" media="screen" id="css-clm-exec-time">
-		.clm-exec-time {
-			display: none;
-		}
-	</style>
-	<style type="text/css" media="screen" id="css-clm-resource">
-		.clm-resource {
-			display: none;
-		}
-
-		#overlay-loader {
-			position: fixed;
-			top: 0;
-			left: 0;
-			width: 100vw;
-			height: 100vh;
-			background-color: rgba(0, 0, 0, 0.7); /* dark translucent background */
-			display: none;
-			justify-content: center;
-			align-items: center;
-			z-index: 9999;
-		}
-
-			#overlay-loader.active {
-				display: flex;
-			}
-
-		#loader-progress-text {
-			font-size: 3rem;
-			color: #fff;
-			font-weight: bold;
-			animation: fadeInOut 1.2s ease-in-out infinite;
-			letter-spacing: 1px;
-			white-space: nowrap; /* prevent vertical wrap */
-			min-width: 3ch; /* enough width for 2-3 digits */
-			text-align: center;
-		}
-
-		@@keyframes fadeInOut {
-			0%, 100% {
-				opacity: 0.8;
-			}
-
-			50% {
-				opacity: 1;
-			}
-		}
-	</style>
 </head>
 <body>
-	<!-- 🔹 Fullscreen Overlay Loader -->
 	<div id="overlay-loader">
 		<div class="loader-text" id="loader-progress-text">0%</div>
 	</div>
-
-
-	<div class="container">
-		<header id="header" class="">
-			<h1>Bulk Domain Availability</h1>
-		</header>
-		<input id="fileName" hidden />
-		<div id="stopwatch-container">
-			<span>Search Time: </span><span id="stopwatch">00:00</span>
-		</div>
-		<form action="" method="post" accept-charset="utf-8" id="availability-form">
+	<div class="header">
+		<h4>Domain Dash</h4>
+		<small>Professional Domain Management Platform</small>
+	</div>
+	<input id="fileName" hidden />
+	<form action="" method="post" accept-charset="utf-8" id="availability-form">
+		<div class="container-fluid py-4">
 			<div class="row">
-				<div class="col-8">
-					<textarea name="domains" id="domainTextarea" placeholder="Enter domain name with/without extension and separated by spaces or new lines, e.g.:&#10;example.com&#10;facebook twitter&#10;anything" required></textarea>
-				</div>
-				<div class="col-4">
-					<select name="tlds" id="tlds-select" asp-items="@(new SelectList(ViewBag.Tlds))" multiple></select>
-				</div>
-			</div>
-			<div class="row">
-				<div class="col-3">
-					<input type="text" name="prefix" placeholder="Enter prefix e.g.: the" autocomplete="off" />
-				</div>
-				<div class="col-3">
-					<input type="text" name="suffix" placeholder="Enter suffix e.g.: online" autocomplete="off" />
-				</div>
-				<div class="col-2">
-					<input type="number" name="max-length" placeholder="Max length" min="1" max="63" />
-				</div>
-				<div class="col-4">
-					<button type="button" class="success" onclick="openModal()">Get Domain Suggestion</button>
-				</div>
-
-			</div>
-			<div class="row">
-				<div class="col-2">
-					<input type="checkbox" name="combine" value="1" id="combine-a">
-					<label for="combine-a">Combine words</label>
-				</div>
-				<div class="col-2">
-					<input type="checkbox" name="combine" value="2" id="combine-b">
-					<label for="combine-b">Combine "-" as separator</label>
-				</div>
-				<div class="col-2">
-					<input type="checkbox" name="cache" value="1" checked="checked" id="cache">
-					<label for="cache">Save cache</label>
-				</div>
-				<div class="col-6">
-					<div class="col-4 left">
-						<button type="button" id="clear-cache" class="error" style="word-break:keep-all;">Clear Cache</button>
-					</div>
-					<div class="col-4 center">
-						<button type="reset" class="warning">Reset</button>
-					</div>
-					<div class="col-4 right">
-						<button type="submit" id="search">Search</button>
-						<button type="button" id="pause" class="hidden">Pause</button>
-						<button type="button" id="resume" class="hidden">Resume</button>
-						<button type="button" id="stop" class="error hidden">Stop</button>
+				<div class="col-md-8">
+					<div class="form-group">
+						<label class="text-lg font-bold">Domain Search Area</label>
+						<textarea name="domains" id="domainTextarea"
+								  class="txtarelem form-control font-mono"
+								  rows="5"
+								  placeholder="Paste your domains here... (one per line or separated by commas)"></textarea>
 					</div>
 				</div>
-				<div class="col-12">
-					<div class="col-3">
-						<input type="file" onchange="uploadFile()" hidden id="importFile" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" />
-						<button type="button" onclick="ImportFile()" id="impfile">Import File</button>
-					</div>
-					<div class="col-3">
-						<button type="button" id="export-csv" class="success">Export CSV</button>
-					</div>
-					@* <div class="col-3">
-					<button type="button" id="export-excel" class="success">Export Excel</button>
-					</div> *@
-					<div class="col-3">
-						<button onclick="DownloadSample()" type="button" class="success">Download Sample File</button>
-					</div>
-				</div>
-			</div>
-		</form>
-
-		<div class="row result hidden">
-			<div class="col-12">
-				<div class="result-title">
-					<h2>Result</h2>
-				</div>
-			</div>
-			<div class="col-2">
-				<h5>Progress:</h5>
-				<div class="clearfix"></div>
-				<h5><span id="domains-checked">0</span>/<span id="domains-length">0</span> (<span id="progress">0</span>)%</h5>
-				<div class="clearfix"></div>
-				<h5>Checking:</h5>
-				<div class="clearfix"></div>
-				<h5 id="checking"><span></span></h5>
-			</div>
-			<div class="col-2">
-				<h5 id="available-counter" class="success">Available: <span>0</span></h5>
-				<div class="clearfix"></div>
-				<h5 id="unavailable-counter" class="warning">Unavailable: <span class="warning">0</span></h5>
-				<div class="clearfix"></div>
-				<h5 id="error-counter" class="error">Error: <span class="error">0</span> <label class="retry-error hidden">(<a href="javascript:void(0)" id="retry-error">retry</a>)</label></h5>
-			</div>
-			<div class="col-2">
-				<input type="checkbox" name="hide-unavailable" value="1" id="hide-unavailable">
-				<label for="hide-unavailable">Hide unavailable</label>
-			</div>
-			<div class="col-2">
-				<input type="checkbox" name="hide-whois" value="1" checked="checked" id="hide-whois">
-				<label for="hide-whois">Hide whois server</label>
-			</div>
-			<div class="col-2">
-				<input type="checkbox" name="hide-exec-time" value="1" checked="checked" id="hide-exec-time">
-				<label for="hide-exec-time">Hide execute time</label>
-			</div>
-			<div class="col-2">
-				<input type="checkbox" name="hide-resource" value="1" checked="checked" id="hide-resource">
-				<label for="hide-resource">Hide resource</label>
-			</div>
-			<div class="clearfix"></div>
-			<div class="col-12">
-				<div class="col-6" style="margin:0% !important;">
-					<div class="pagination-controls">
-						<label for="rowsPerPage">Rows per page:</label>
-						<select id="rowsPerPage" style="width:16%;height:2%;">
-							<option value="10">10</option>
-							<option value="25">25</option>
-							<option value="50" selected>50</option>
-							<option value="100">100</option>
-							<option value="all">All</option>
+				<div class="col-md-4">
+					<div class="form-group">
+						<label>Select TLDs</label>
+						<select name="tlds" id="tlds-select" asp-items="@(new SelectList(ViewBag.Tlds))"
+								class="custom-select js-select2"
+								multiple="multiple"
+								style="width: 100%">
 						</select>
 					</div>
+					<button class="btn btn-yellow btn-block mb-2" type="button"
+							data-toggle="modal"
+							data-target="#aiSearchModal">
+						<svg xmlns="http://www.w3.org/2000/svg"
+							 width="24"
+							 height="24"
+							 viewBox="0 0 24 24"
+							 fill="none"
+							 stroke="currentColor"
+							 stroke-width="2"
+							 stroke-linecap="round"
+							 stroke-linejoin="round"
+							 class="icon icon-tabler icons-tabler-outline icon-tabler-brain">
+							<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+							<path d="M15.5 13a3.5 3.5 0 0 0 -3.5 3.5v1a3.5 3.5 0 0 0 7 0v-1.8" />
+							<path d="M8.5 13a3.5 3.5 0 0 1 3.5 3.5v1a3.5 3.5 0 0 1 -7 0v-1.8" />
+							<path d="M17.5 16a3.5 3.5 0 0 0 0 -7h-.5" />
+							<path d="M19 9.3v-2.8a3.5 3.5 0 0 0 -7 0" />
+							<path d="M6.5 16a3.5 3.5 0 0 1 0 -7h.5" />
+							<path d="M5 9.3v-2.8a3.5 3.5 0 0 1 7 0v10" />
+						</svg>
+						&nbsp;AI Search
+					</button>
+					<button class="btn btn-yellow btn-block" type="button"
+							data-toggle="modal"
+							data-target="#domainSuggestionModal">
+						<i class="fa fa-search" aria-hidden="true"></i>&nbsp;Get Domain
+						Suggestions
+					</button>
 				</div>
-				<div class="col-2">
-					<input type="text" id="tableSearch" placeholder="Search domains..." style="width: 100%; padding: 5px;" />
-				</div>
-				<div class="col-4 right">
-					<div class="pagination-controls" id="paginationControls">
-						<button id="prevPage" disabled>Previous</button>
-						<span>Page <span id="currentPage">1</span> of <span id="totalPages">?</span></span>
-						<button id="nextPage" disabled>Next</button>
+			</div>
+
+			<div class="row mt-4">
+				<div class="col-md-5">
+					<h6>Domain Controls</h6>
+					<div class="form-row mt-3">
+						<div class="form-group col-md-6">
+							<label>Prefix</label>
+							<input name="prefix"
+								   type="text"
+								   class="form-control"
+								   placeholder="www, api..." />
+						</div>
+						<div class="form-group col-md-6">
+							<label>Suffix</label>
+							<input name="suffix"
+								   type="text"
+								   class="form-control"
+								   placeholder="app, tech..." />
+						</div>
+					</div>
+					<div class="form-group">
+						<label>Max Length</label>
+						<input type="number" name="max-length" class="form-control" placeholder="15" />
 					</div>
 				</div>
-				<table id="result-table">
-					<thead>
-						<tr>
-							<th>ID</th>
-							<th>Domain</th>
-							<th>Availability</th>
-							<th>Length</th>
-							<th>Message</th>
-							<th class="clm-whois">Whois Server</th>
-							<th class="clm-resource">Resource</th>
-							<th class="clm-exec-time">Execute Time</th>
-							<th>Actions</th>
-						</tr>
-					</thead>
-					<tbody></tbody>
-				</table>
-			</div>
-		</div>
 
-		<div class="row">
-			<div class="col-12">
-				<footer>
-					<span>Copyright &copy; <span id="">@DateTime.UtcNow.Year.ToString()</span> <a href="https://github.com/ShubhamDubey1999/Domainventory" target="_blank">~sdev</a></span>
-				</footer>
+				<div class="col-md-7">
+					<h6>Feature Options</h6>
+					<div class="form-check mt-3">
+						<input class="form-check-input" type="checkbox" id="combineWords" />
+						<label class="form-check-label" for="combineWords">Combine words</label>
+					</div>
+					<div class="form-check">
+						<input class="form-check-input"
+							   type="checkbox"
+							   id="combineHyphen" />
+						<label class="form-check-label" for="combineHyphen">Combine with "-"</label>
+					</div>
+					<div class="form-check mb-3">
+						<input class="form-check-input" type="checkbox" id="saveCache" />
+						<label class="form-check-label" for="saveCache">Save cache</label>
+					</div>
+				</div>
+			</div>
+
+			<div class="row mt-0">
+				<div class="col-md-12">
+					<div class="row mb-2">
+						<div class="col-md-4 mb-2">
+							<button type="button" class="btn btn-yellow btn-block expand-on-hover">
+								<i class="fa fa-trash-o" aria-hidden="true"></i>&nbsp;Clear
+								Cache
+							</button>
+						</div>
+						<div class="col-md-4 mb-2">
+							<button class="btn btn-yellow btn-block" type="reset">
+								<i class="fa fa-undo" aria-hidden="true"></i> &nbsp;Reset
+							</button>
+						</div>
+						<div class="col-md-4 mb-2">
+							<button class="btn btn-yellow btn-block">
+								<i class="fa fa-search" aria-hidden="true"></i>&nbsp;Search
+							</button>
+						</div>
+					</div>
+					<div class="row">
+						<div class="col-md-4 mb-2">
+							<button class="btn btn-blue btn-block" type="button" onclick="ImportFile()">
+								<i class="fa fa-download" aria-hidden="true"></i>&nbsp;Import
+							</button>
+							<input type="file" onchange="uploadFile()" hidden id="importFile" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" />
+						</div>
+						<div class="col-md-4 mb-2">
+							<button class="btn btn-yellow-export btn-block" type="button" id="export-csv">
+								<i class="fa fa-upload" aria-hidden="true"></i>&nbsp;Export
+							</button>
+						</div>
+						<div class="col-md-4 mb-2">
+							<button class="btn btn-green btn-block" onclick="DownloadSample()" type="button">
+								<i class="fa fa-download" aria-hidden="true"></i>&nbsp;Download
+								Sample
+							</button>
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
-	</div>
+		<div class="container-fluid mt-4 text-white" style="display:none;" id="result-section">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h2 class="text-light mb-0">Domain Check Results</h2>
+				<div class="d-flex align-items-center gap-2">
+					<label for="stopwatch" class="text-light mb-0">Elapsed Time:</label>
+					<div id="stopwatch" class="text-warning fw-bold px-4 py-2 rounded-3 shadow-sm" style="background-color: #1f1f1f; min-width: 100px;">
+						⏱ 00:00
+					</div>
+				</div>
+			</div>
+
+			<!-- Progress + Stats + Filters -->
+			<div class="row g-3 mb-3">
+				<!-- Progress -->
+				<div class="col-md-3">
+					<div class="card p-3 h-100">
+						<h6>Progress</h6>
+						<div>
+							<strong id="domains-checked">0</strong> /
+							<strong id="domains-length">0</strong>
+							(<span id="progress">0</span>%)
+						</div>
+						<hr class="border-secondary" />
+						<div class="small">
+							Checking: <span id="checking" class="text-muted">-</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Counters -->
+				<div class="col-md-3">
+					<div class="card p-3 h-100">
+						<h6 class="text-success">
+							Available: <span id="available-counter">0</span>
+						</h6>
+						<h6 class="text-warning">
+							Unavailable: <span id="unavailable-counter">0</span>
+						</h6>
+						<h6 class="text-danger">
+							Error: <span id="error-counter">0</span>
+							<small class="retry-error ms-2 hidden">
+								(<a href="#"
+									id="retry-error"
+									class="text-danger text-decoration-underline">retry</a>)
+							</small>
+						</h6>
+					</div>
+				</div>
+
+				<!-- Filters -->
+				<div class="col-md-6">
+					<div class="card p-3 h-100">
+						<h6>Filters</h6>
+						<div class="d-flex flex-wrap gap-3">
+							<div class="form-check">
+								<input class="form-check-input"
+									   type="checkbox"
+									   id="hide-unavailable" />
+								<label class="form-check-label" for="hide-unavailable">Hide Unavailable</label>
+							</div>
+							<div class="form-check">
+								<input class="form-check-input"
+									   type="checkbox"
+									   id="hide-whois"
+									   checked />
+								<label class="form-check-label" for="hide-whois">Hide WHOIS</label>
+							</div>
+							<div class="form-check">
+								<input class="form-check-input"
+									   type="checkbox"
+									   id="hide-exec-time"
+									   checked />
+								<label class="form-check-label" for="hide-exec-time">Hide Exec Time</label>
+							</div>
+							<div class="form-check">
+								<input class="form-check-input"
+									   type="checkbox"
+									   id="hide-resource"
+									   checked />
+								<label class="form-check-label" for="hide-resource">Hide Resource</label>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Controls -->
+			<div class="row align-items-center mb-3">
+				<div class="col-md-2">
+					<label for="rowsPerPage" class="form-label mb-0">Rows per page:</label>
+					<select id="rowsPerPage" class="form-select form-select-sm mt-1">
+						<option value="10">10</option>
+						<option value="25">25</option>
+						<option value="50" selected>50</option>
+						<option value="100">100</option>
+						<option value="all">All</option>
+					</select>
+				</div>
+				<div class="col-md-4">
+					<input type="text"
+						   id="tableSearch" style="border: 1px solid #ffcd39;"
+						   class="form-control form-control-sm mt-4"
+						   placeholder="Search domains..." />
+				</div>
+				<div class="col-md-6 mt-4">
+					<!-- Pagination Controls -->
+					<div class="d-flex align-items-center justify-content-end gap-3 mt-3">
+						<button id="prevPage" type="button"
+								class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+							<i class="fa fa-angle-left"></i> Prev
+						</button>
+						<span class="text-light small">
+							Page <strong id="currentPage" class="text-warning">1</strong> of
+							<strong id="totalPages" class="text-warning">?</strong>
+						</span>
+						<button id="nextPage" type="button"
+								class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+							Next <i class="fa fa-angle-right"></i>
+						</button>
+					</div>
+				</div>
+
+				<!-- Table -->
+				<div class="table-responsive">
+					<table class="table table-dark table-striped table-hover border shadow-sm rounded"
+						   id="result-table">
+						<thead>
+							<tr>
+								<th>ID</th>
+								<th>Domain</th>
+								<th>Availability</th>
+								<th>Length</th>
+								<th>Message</th>
+								<th class="clm-whois">WHOIS</th>
+								<th class="clm-resource">Resource</th>
+								<th class="clm-exec-time">Exec Time</th>
+								<th>Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							<!-- Rows go here -->
+						</tbody>
+					</table>
+				</div>
+			</div>			
+		</div>
+		<!-- AI Search Modal -->
+		<div class="modal fade"
+			 id="aiSearchModal"
+			 tabindex="-1"
+			 role="dialog"
+			 aria-labelledby="aiSearchModalLabel"
+			 aria-hidden="true">
+			<div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+				<div class="modal-content"
+					 style="background-color: #1a1a1a; color: white">
+					<div class="modal-header">
+						<h5 class="modal-title" id="aiSearchModalLabel">
+							🧠 AI Domain Assistant
+						</h5>
+						<button type="button"
+								class="close text-white"
+								data-dismiss="modal"
+								aria-label="Close">
+							<span aria-hidden="true">&times;</span>
+						</button>
+					</div>
+
+					<div class="modal-body">
+						<label for="aiPrompt">Enter your prompt:</label>
+						<textarea id="aiPrompt"
+								  class="txtarelem form-control mb-3"
+								  rows="4"
+								  placeholder="e.g., Suggest tech-related domain names..."></textarea>
+
+						<label for="aiResponse">AI Response:</label>
+						<div id="aiResponse"
+							 class="p-3 rounded"
+							 style="background-color: #2a2a2a; min-height: 120px">
+							<em class="text-muted">Response will appear here...</em>
+						</div>
+					</div>
+
+					<div class="modal-footer">
+						<button type="button" class="btn btn-blue" data-dismiss="modal">
+							Close
+						</button>
+						<button type="button" class="btn btn-green" id="runAiSearch">
+							Run AI Search
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!-- Domain Suggestions Modal -->
+		<div class="modal fade"
+			 id="domainSuggestionModal"
+			 tabindex="-1"
+			 role="dialog"
+			 aria-labelledby="domainSuggestionModalLabel"
+			 aria-hidden="true">
+			<div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+				<div class="modal-content"
+					 style="background-color: #1a1a1a; color: white">
+					<div class="modal-header">
+						<h5 class="modal-title" id="domainSuggestionModalLabel">
+							🔍 Get Domain Suggestions
+						</h5>
+						<button type="button"
+								class="close text-white"
+								data-dismiss="modal"
+								aria-label="Close">
+							<span aria-hidden="true">&times;</span>
+						</button>
+					</div>
+
+					<div class="modal-body">
+						<label for="domainInput">Enter a domain:</label>
+						<div class="input-group mb-3">
+							<input type="text"
+								   id="domainInput"
+								   class="form-control"
+								   placeholder="e.g., techverse.com"
+								   autocomplete="off"
+								   style="height: auto" />
+							<div class="input-group-append">
+								<button class="btn btn-yellow" type="button" onclick="SearchAvaialbleDomain()" id="checkDomainBtn">
+									Check
+								</button>
+							</div>
+						</div>
+
+						<div id="domainResult"
+							 class="mb-4 p-3 rounded"
+							 style="background-color: #2a2a2a; min-height: 60px">
+							<em class="text-muted">Availability info will appear here...</em>
+						</div>
+
+						<h6>💡 Suggested Domains:</h6>
+						<div id="suggestedDomains" class="row" style="background-color: #2a2a2a;">
+						</div>
+
+					<div class="modal-footer">
+						<button type="button" class="btn btn-blue" data-dismiss="modal">
+							Close
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</form>
+
+	@* <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script> *@
 	<script src="~/lib/jquery/dist/jquery.min.js"></script>
 	<script src="~/lib/jquery/dist/jquery.js"></script>
-	<script src="~/js/table2csv.js"></script>
-	<script src="~/js/custom-domain-checker2.js" asp-append-version="true"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+	<script src="~/js/custom-domain-checker3.js" asp-append-version="true"></script>
+	<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-	<div id="domainModal" class="hidden">
-		<div class="modal-box">
-			<h2>Verify Domain</h2>
-			<input type="text" id="domainInput" placeholder="Enter domain (e.g. example.com)" />
-			<div style="margin-top: 10px;">
-				<button class="success" onclick="SearchAvaialbleDomain()">Verify</button>
-				<button type="button" onclick="closeModal()">Close</button>
-			</div>
-			<div id="verifyResult" style="margin-top: 15px;"></div>
-		</div>
-	</div>
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+	<script>
+		$(".js-select2").select2({
+			placeholder: "Choose TLD extensions",
+		});
+	</script>
 </body>
 </html>
