@@ -131,7 +131,7 @@ $(document).ready(function () {
         $('#domains-checked').text(0);
         $('#domains-length').text(0);
         $('#progress').text(0);
-        
+
 
         let domainsInput = $('textarea[name="domains"]').val();
         let domainList = domainsInput
@@ -226,12 +226,11 @@ function loadPage(fileName, pageNumber, pageSize = 50) {
         success: function (response) {
             let tbody = $('#result-table tbody');
             tbody.empty();
-
+            var newRows = "";
             response.results.forEach(row => {
                 const isUnavailable = row.availability.includes("Unavailable");
                 const rowClass = isUnavailable ? 'error' : '';
-
-                tbody.append(`
+                newRows += `
             <tr class="${rowClass}">
                 <td>${row.id}</td>
                 <td>${row.domain}</td>
@@ -243,8 +242,9 @@ function loadPage(fileName, pageNumber, pageSize = 50) {
                 <td class="clm-exec-time">${row.executeTime}</td>
                 <td>${row.actions || '—'}</td>
             </tr>
-        `);
+        `
             });
+            tbody.append(newRows);
 
             if (isAll) {
                 $('#paginationControls').hide();
