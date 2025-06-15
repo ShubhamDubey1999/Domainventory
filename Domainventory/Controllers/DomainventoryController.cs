@@ -94,7 +94,7 @@ namespace Domainventory.Controllers
 			var domainsToCheck = request.Domains
 								.Select(d => hasPrefixOrSuffix ? $"{request.Prefix}{d}{request.Suffix}" : d)
 								.SelectMany(d => hasTlds ? request.Tlds.Select(tld => $"{d}.{tld}") : new[] { d })
-								.Where(d => request.Maxlength == 0 || d.Split(".")[0].Length == request.Maxlength)
+								.Where(d => request.Maxlength == 0 || d.Split(".")[0].Length <= request.Maxlength)
 								.ToList();
 			progress.Total = domainsToCheck.Count;
 			_progressStore[requestId] = progress;

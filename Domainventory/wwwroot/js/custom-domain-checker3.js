@@ -18,7 +18,7 @@ async function pollProgress() {
         }
 
         const data = await response.json();
-        const { processed, total } = data;
+        let { processed, total } = data;
 
         const percent = Math.floor((processed / total) * 100);
         document.getElementById("loader-progress-text").textContent = `${percent}%`;
@@ -62,6 +62,9 @@ $(document).ready(function () {
         rowsPerPage = $("#rowsPerPage").val();
         loadPage(fileName, currentPage, rowsPerPage);
         $('#currentPage').text(currentPage);
+    });
+    $('#resetbtn').click(() => {
+        reset();
     });
 
     $('#rowsPerPage').change(function () {
@@ -122,8 +125,7 @@ $(document).ready(function () {
         const overlay = document.getElementById("overlay-loader");
         const progressFill = document.getElementById("loader-progress-text");
 
-        overlay.classList.add("active");
-        progressFill.style.width = "0%";
+
         $('#result-table tbody').empty();
         $('#available-counter').text(0);
         $('#unavailable-counter').text(0);
@@ -138,8 +140,13 @@ $(document).ready(function () {
             .split(/[\s\n]+/)
             .filter(d => d.trim().length > 0)
             .map(d => d.trim());
-
+        if (domainList.length == 0) {
+            alert("No domains provided.");
+            return false;
+        }
         let tlds = $('select[name="tlds"]').val();
+        overlay.classList.add("active");
+        progressFill.style.width = "0%";
 
         let requestPayload = {
             domains: domainList,
@@ -229,12 +236,13 @@ function loadPage(fileName, pageNumber, pageSize = 50) {
             var newRows = "";
             response.results.forEach(row => {
                 const isUnavailable = row.availability.includes("Unavailable");
-                const rowClass = isUnavailable ? 'error' : '';
+                const isError = row.availability.toLowerCase().includes("error") || row.availability.toLowerCase().includes("invalid");
+                const rowClass = (isUnavailable || isError) ? 'bg-danger' : 'bg-success';
                 newRows += `
             <tr class="${rowClass}">
                 <td>${row.id}</td>
                 <td>${row.domain}</td>
-                <td>${isUnavailable ? 'Unavailable' : 'Available'}</td>
+                <td>${isUnavailable ? 'Unavailable' : isError ? row.availability : 'Available'}</td>
                 <td>${row.length}</td>
                 <td>${row.message}</td>
                 <td class="clm-whois">${row.whoisServer}</td>
@@ -355,7 +363,6 @@ function SearchAvaialbleDomain() {
     const resultDiv = $("#domainResult");
     const suggestionsList = $("#suggestedDomains");
 
-    resultDiv.html("");
     suggestionsList.empty();
 
     if (!domain) {
@@ -363,6 +370,7 @@ function SearchAvaialbleDomain() {
         return;
     }
 
+    resultDiv.html("");
     resultDiv.html("<p class='text-warning'>🔍 Verifying...</p>");
 
     $.ajax({
@@ -406,4 +414,7 @@ function SearchAvaialbleDomain() {
             resultDiv.html("<p class='text-danger'>❌ Error: " + xhr.responseText + "</p>");
         }
     });
+}
+function reset() {
+    location.reload();
 }
