@@ -94,15 +94,30 @@ $(document).ready(function () {
                 responseBox.empty();
 
                 if (data.suggestions && data.suggestions.length > 0) {
-                    const list = $("<ul>").addClass("list-group");
-                    data.suggestions.forEach(domain => {
-                        const item = $("<li>")
-                            .addClass("list-group-item list-group-item-dark")
-                            .css({ backgroundColor: "#2a2a2a", color: "#11AA11" })
-                            .html(`<a href="https://${domain}" target="_blank" style="color: #11AA11; text-decoration: none;">${domain}</a>`);
-                        list.append(item);
+                    const row = $("<div>").addClass("row");
+
+                    data.suggestions.forEach(function (domain) {
+                        const col = $("<div>").addClass("col-md-4 mb-2");
+
+                        const link = $("<a>")
+                            .attr("href", "https://" + domain)
+                            .attr("target", "_blank")
+                            .text(domain)
+                            .css({
+                                color: "#11AA11",
+                                backgroundColor: "#2a2a2a",
+                                display: "block",
+                                padding: "8px 12px",
+                                borderRadius: "5px",
+                                textDecoration: "none",
+                                fontSize: "14px"
+                            });
+
+                        col.append(link);
+                        row.append(col);
                     });
-                    responseBox.append(list);
+
+                    responseBox.append(row);
                 } else {
                     responseBox.html("<p class='text-warning'>⚠️ No suggestions found.</p>");
                 }
@@ -111,6 +126,7 @@ $(document).ready(function () {
                 responseBox.html("<p class='text-danger'>❌ Error: " + xhr.responseText + "</p>");
             }
         });
+
     });
     $("#aiSearchModal").on("hidden.bs.modal", function () {
         $("#aiPrompt").val("");

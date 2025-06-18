@@ -672,7 +672,7 @@ namespace Domainventory.Controllers
 			{
 				throw new InvalidOperationException("AI Search configuration is missing.");
 			}
-
+			prompt += ", Only provide domain names without any additional text or explanations.";
 			var client = new HttpClient();
 
 			var request = new HttpRequestMessage
