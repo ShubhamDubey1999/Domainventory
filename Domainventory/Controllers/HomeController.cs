@@ -570,7 +570,9 @@ namespace Domainventory.Controllers
 				await domainFile.CopyToAsync(stream);
 				stream.Position = 0;
 
-				if (domainFile.FileName.EndsWith(".csv"))
+				var fileName = domainFile.FileName.ToLowerInvariant();
+
+				if (fileName.EndsWith(".csv"))
 				{
 					using var reader = new StreamReader(stream);
 					bool isFirstLine = true;
@@ -590,13 +592,12 @@ namespace Domainventory.Controllers
 						}
 					}
 				}
-				else if (domainFile.FileName.EndsWith(".xls") || domainFile.FileName.EndsWith(".xlsx"))
+				else if (fileName.EndsWith(".xls") || fileName.EndsWith(".xlsx"))
 				{
 					using var workbook = new XLWorkbook(stream);
 					var worksheet = workbook.Worksheets.FirstOrDefault();
 					if (worksheet != null)
 					{
-						domains = new List<string>();
 						var rowCount = worksheet.LastRowUsed().RowNumber();
 						var colCount = worksheet.LastColumnUsed().ColumnNumber();
 
@@ -614,13 +615,47 @@ namespace Domainventory.Controllers
 						}
 					}
 				}
+				else if (fileName.EndsWith(".txt"))
+				{
+					using var reader = new StreamReader(stream);
+					while (!reader.EndOfStream)
+					{
+						var line = await reader.ReadLineAsync();
+						if (!string.IsNullOrWhiteSpace(line))
+						{
+							var parts = line.Split(new[] { ',', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+							domains.AddRange(parts);
+						}
+					}
+				}
+				else if (fileName.EndsWith(".json"))
+				{
+					stream.Position = 0;
+					using var reader = new StreamReader(stream);
+					var jsonContent = await reader.ReadToEndAsync();
+
+					try
+					{
+						var jsonDomains = JsonSerializer.Deserialize<List<string>>(jsonContent);
+						if (jsonDomains != null)
+						{
+							domains.AddRange(jsonDomains.Where(d => !string.IsNullOrWhiteSpace(d)));
+						}
+					}
+					catch (JsonException)
+					{
+						return RedirectToAction("Index");
+					}
+				}
+				else
+				{
+					return RedirectToAction("Index");
+				}
 			}
 
-			//var uniqueDomains = domains.Distinct().ToList();
-			var uniqueDomains = domains.ToList();
+			var uniqueDomains = domains.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
 			return Json(new { domains = string.Join("\n", uniqueDomains) });
-
 		}
 	}
 }
