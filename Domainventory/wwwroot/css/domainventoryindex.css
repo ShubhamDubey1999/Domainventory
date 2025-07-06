@@ -475,3 +475,21 @@ label {
         opacity: 1;
     }
 }
+
+.dropdown-menu {
+    background-color: #2b2b3c !important;
+    border-radius: 8px;
+}
+
+.dropdown-item.export-item {
+    transition: background 0.2s;
+}
+
+    .dropdown-item.export-item:hover {
+        background-color: #3a3a4a !important;
+        color: #fff !important;
+    }
+
+.dropdown-item i {
+    width: 20px;
+}

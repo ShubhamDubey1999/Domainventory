@@ -11,36 +11,52 @@ const pollInterval = 2000;
 
 async function pollProgress() {
     try {
-        const response = await fetch(`Domainventory/GetProgress?requestId=${requestId}`);
-        if (!response.ok) {
-            console.error("Failed to get progress.");
-            return;
-        }
+        const resp = await fetch(`/Domainventory/GetProgress?requestId=${requestId}`);
+        if (!resp.ok) { console.error("Failed to get progress"); return; }
 
-        const data = await response.json();
-        let { processed, total } = data;
+        const { processed, total } = await resp.json();
 
-        const percent = Math.floor((processed / total) * 100);
-        document.getElementById("loader-progress-text").textContent = `${percent}%`;
+        // numbers & %
+        const percent = total ? Math.floor((processed / total) * 100) : 0;
+        document.getElementById("domains-checked").textContent = processed;
+        document.getElementById("domains-length").textContent = total;
+        document.getElementById("progress").textContent = percent;
 
+        // progress‑bar width + aria
+        const bar = document.getElementById("progress-bar");
+        bar.style.width = `${percent}%`;
+        bar.ariaValueNow = percent;
+
+        updateStopwatch();
         if (processed < total) {
             setTimeout(pollProgress, pollInterval);
-        } else {
-            document.getElementById("loader-progress-text").textContent = "Completed";
-            // optionally hide the loader
-            setTimeout(() => {
-                document.getElementById("overlay-loader").classList.remove("active");
-                document.getElementById("loader-progress-text").textContent = "0%"
-                processed = 0;
-                total = 0;
-            }, 1000);
         }
-    } catch (error) {
-        console.error("Error polling progress:", error);
+        // no overlay to hide – finished quietly
+    } catch (err) {
+        console.error("Error polling progress:", err);
     }
 }
 
+var startTime = Date.now();
+function updateStopwatch() {
+    const secs = Math.floor((Date.now() - startTime) / 1000);
+    const mm = String(Math.floor(secs / 60)).padStart(2, "0");
+    const ss = String(secs % 60).padStart(2, "0");
+    document.getElementById("stopwatch").textContent = `⏱ ${mm}:${ss}`;
+}
+
+
 $(document).ready(function () {
+    $(".js-select2").select2({
+        placeholder: "Choose TLD extensions",
+    });
+    $("#domainTextarea").on("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            $("form").submit();
+        }
+    });
+
     document.getElementById("tableSearch").addEventListener("keyup", applyTableFilter);
     let currentPage = 1;
     let rowsPerPage = 50;
@@ -75,71 +91,71 @@ $(document).ready(function () {
         loadPage(fileName, currentPage, pageSize);
         $('#currentPage').text(currentPage);
     });
-    $("#runAiSearch").click(function () {
-        const prompt = $("#aiPrompt").val().trim();
-        const responseBox = $("#aiResponse");
+    //$("#runAiSearch").click(function () {
+    //    const prompt = $("#aiPrompt").val().trim();
+    //    const responseBox = $("#aiResponse");
 
-        responseBox.html("<p class='text-warning'>🧠 Thinking...</p>");
+    //    responseBox.html("<p class='text-warning'>🧠 Thinking...</p>");
 
-        if (!prompt) {
-            alert("Please enter a prompt.");
-            responseBox.html("<em class='text-muted'>Response will appear here...</em>");
-            return;
-        }
+    //    if (!prompt) {
+    //        alert("Please enter a prompt.");
+    //        responseBox.html("<em class='text-muted'>Response will appear here...</em>");
+    //        return;
+    //    }
 
-        $.ajax({
-            url: "Domainventory/AISuggestDomains?prompt=" + encodeURIComponent(prompt),
-            type: "GET",
-            success: function (data) {
-                responseBox.empty();
+    //    $.ajax({
+    //        url: "Domainventory/AISuggestDomains?prompt=" + encodeURIComponent(prompt),
+    //        type: "GET",
+    //        success: function (data) {
+    //            responseBox.empty();
 
-                if (data.suggestions && data.suggestions.length > 0) {
-                    const row = $("<div>").addClass("row");
+    //            if (data.suggestions && data.suggestions.length > 0) {
+    //                const row = $("<div>").addClass("row");
 
-                    data.suggestions.forEach(function (domain) {
-                        const col = $("<div>").addClass("col-md-4 mb-2");
+    //                data.suggestions.forEach(function (domain) {
+    //                    const col = $("<div>").addClass("col-md-4 mb-2");
 
-                        const link = $("<a>")
-                            .attr("href", "https://" + domain)
-                            .attr("target", "_blank")
-                            .text(domain)
-                            .css({
-                                color: "#11AA11",
-                                backgroundColor: "#2a2a2a",
-                                display: "block",
-                                padding: "8px 12px",
-                                borderRadius: "5px",
-                                textDecoration: "none",
-                                fontSize: "14px"
-                            });
+    //                    const link = $("<a>")
+    //                        .attr("href", "https://" + domain)
+    //                        .attr("target", "_blank")
+    //                        .text(domain)
+    //                        .css({
+    //                            color: "#11AA11",
+    //                            backgroundColor: "#2a2a2a",
+    //                            display: "block",
+    //                            padding: "8px 12px",
+    //                            borderRadius: "5px",
+    //                            textDecoration: "none",
+    //                            fontSize: "14px"
+    //                        });
 
-                        col.append(link);
-                        row.append(col);
-                    });
+    //                    col.append(link);
+    //                    row.append(col);
+    //                });
 
-                    responseBox.append(row);
-                } else {
-                    responseBox.html("<p class='text-warning'>⚠️ No suggestions found.</p>");
-                }
-            },
-            error: function (xhr) {
-                responseBox.html("<p class='text-danger'>❌ Error: " + xhr.responseText + "</p>");
-            }
-        });
+    //                responseBox.append(row);
+    //            } else {
+    //                responseBox.html("<p class='text-warning'>⚠️ No suggestions found.</p>");
+    //            }
+    //        },
+    //        error: function (xhr) {
+    //            responseBox.html("<p class='text-danger'>❌ Error: " + xhr.responseText + "</p>");
+    //        }
+    //    });
 
-    });
-    $("#aiSearchModal").on("hidden.bs.modal", function () {
-        $("#aiPrompt").val("");
-        $("#aiResponse").html("<em class='text-muted'>Response will appear here...</em>");
-    });
+    //});
+    //$("#aiSearchModal").on("hidden.bs.modal", function () {
+    //    $("#aiPrompt").val("");
+    //    $("#aiResponse").html("<em class='text-muted'>Response will appear here...</em>");
+    //});
 
     //loadPage(fileName, currentPage, rowsPerPage);
 
     $('#availability-form').on('submit', function (e) {
         e.preventDefault();
         $('#result-section').hide();
-        const overlay = document.getElementById("overlay-loader");
-        const progressFill = document.getElementById("loader-progress-text");
+        //const overlay = document.getElementById("overlay-loader");
+        //const progressFill = document.getElementById("loader-progress-text");
 
 
         $('#result-table tbody').empty();
@@ -161,9 +177,16 @@ $(document).ready(function () {
             return false;
         }
         let tlds = $('select[name="tlds"]').val();
-        overlay.classList.add("active");
-        progressFill.style.width = "0%";
+        //overlay.classList.add("active");
+        //progressFill.style.width = "0%";
+        $('#progress').text(0);                 // existing line
 
+        $('#progress-bar')                      // NEW – zero the bar itself
+            .css('width', '0%')
+            .attr('aria-valuenow', 0);
+        startTime = Date.now();                 // NEW – restart the stopwatch (if you use it)
+
+        $('#result-section').show();
         let requestPayload = {
             domains: domainList,
             tlds: tlds,
@@ -193,11 +216,15 @@ $(document).ready(function () {
                 $('#currentPage').text(currentPage);
                 loadPage(response.csvFileName, currentPage, rowsPerPage);
 
-                if (overlay.classList.contains("active")) {
-                    overlay.classList.remove("active");
-                    progressFill.style.width = "0%";
-                }
+                //if (overlay.classList.contains("active")) {
+                //    overlay.classList.remove("active");
+                //    progressFill.style.width = "0%";
+                //}
                 $('#result-section').show();
+
+                document.querySelector("#result-section").scrollIntoView({
+                    behavior: "smooth"
+                });
             },
             error: function (xhr, status, error) {
                 alert('Error: ' + xhr.responseText);
@@ -325,21 +352,63 @@ function DownloadSample() {
 }
 
 document.getElementById("export-csv").addEventListener("click", function () {
-    //$("#result-table").table2csv("download", { filename: "domain-results.csv" });
     const fileName = document.getElementById("fileName").value;
     if (!fileName) {
-        alert("No CSV file found to export.");
+        alert("No file found to export.");
         return;
     }
 
     window.location.href = `Domainventory/DownloadCsv?fileName=${encodeURIComponent(fileName)}`;
 });
 
-$('#export-excel').click(function () {
-    let table = document.getElementById("result-table");
-    let workbook = XLSX.utils.table_to_book(table, { sheet: "Domains" });
-    XLSX.writeFile(workbook, "DomainResults.xlsx");
+
+document.getElementById("export-excel").addEventListener("click", function () {
+    const fileName = document.getElementById("fileName").value;
+    if (!fileName) {
+        alert("No file found to export.");
+        return;
+    }
+
+    window.location.href = `Domainventory/DownloadExcel?csvFilePath=${encodeURIComponent(fileName)}`;
 });
+document.getElementById("export-txt").addEventListener("click", function () {
+    const fileName = document.getElementById("fileName").value;
+    if (!fileName) {
+        alert("No file found to export.");
+        return;
+    }
+    downloadTxtFromCsv(fileName);
+});
+document.getElementById("export-json").addEventListener("click", function () {
+    const fileName = document.getElementById("fileName").value;
+    if (!fileName) {
+        alert("No file found to export.");
+        return;
+    }
+    downloadJsonFromCSV(fileName);
+});
+
+function downloadTxtFromCsv(filePath) {
+    const url = "Domainventory/DownloadTxt?filePath=" + encodeURIComponent(filePath);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = ""; // Let the server control the filename
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+}
+
+function downloadJsonFromCSV(filePath) {
+    const url = "Domainventory/DownloadJSON?filePath=" + encodeURIComponent(filePath);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+}
+
+
 function applyTableFilter() {
     const filter = document.getElementById("tableSearch").value.toLowerCase();
     const rows = document.querySelectorAll("#result-table tbody tr");
@@ -433,4 +502,48 @@ function SearchAvaialbleDomain() {
 }
 function reset() {
     location.reload();
+}
+function RunAISearch() {
+    const prompt = $("#domainTextarea").val().trim();
+    //const responseBox = $("#aiResponse");
+
+    //responseBox.html("<p class='text-warning'>🧠 Thinking...</p>");
+
+    if (!prompt) {
+        alert("Please enter a prompt.");
+        //responseBox.html("<em class='text-muted'>Response will appear here...</em>");
+        return;
+    }
+
+    $.ajax({
+        url: "Domainventory/AISuggestDomains?prompt=" + encodeURIComponent(prompt),
+        type: "GET",
+        success: function (response) {
+            $('#domains-length').text(response.total);
+            $('#domains-checked').text(response.results.length);
+            $('#available-counter').text(response.available);
+            $('#unavailable-counter').text(response.unavailable);
+            $('#error-counter').text(response.error);
+            $('#progress').text(Math.floor((response.results.length / response.total) * 100));
+            $("#fileName").val(response.csvFileName);
+            $('#stopwatch').text(response.timeTakenInSeconds);
+            const currentPage = 1;
+            const rowsPerPage = parseInt($('#rowsPerPage').val()) || 50;
+            $('#currentPage').text(currentPage);
+            loadPage(response.csvFileName, currentPage, rowsPerPage);
+
+            //if (overlay.classList.contains("active")) {
+            //    overlay.classList.remove("active");
+            //    progressFill.style.width = "0%";
+            //}
+            $('#result-section').show();
+
+            document.querySelector("#result-section").scrollIntoView({
+                behavior: "smooth"
+            });
+        },
+        error: function (xhr) {
+            //responseBox.html("<p class='text-danger'>❌ Error: " + xhr.responseText + "</p>");
+        }
+    });
 }

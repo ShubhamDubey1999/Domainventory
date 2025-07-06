@@ -20,15 +20,15 @@
 	<link rel="icon" type="image/x-icon" href="~/Image/programming.png">
 </head>
 <body>
-	<div id="overlay-loader">
+	@* <div id="overlay-loader">
 		<div class="loader-text" id="loader-progress-text">0%</div>
-	</div>
+	</div> *@
 	<div class="header">
 		<h4 style="cursor:pointer;" onclick="location.reload()">Domain Dash</h4>
 		<small>Professional Domain Management Platform</small>
 	</div>
 	<input id="fileName" hidden />
-	<form action="" method="post" accept-charset="utf-8" id="availability-form">
+	<form class="container" action="" method="post" accept-charset="utf-8" id="availability-form">
 		<div class="container-fluid py-4">
 			<div class="row">
 				<div class="col-md-8">
@@ -49,7 +49,32 @@
 								style="width: 100%">
 						</select>
 					</div>
+					<button class="btn btn-yellow btn-block" type="submit">
+						<i class="fa fa-search" aria-hidden="true"></i>&nbsp;Bulk Domain Search
+					</button>
 					<button class="btn btn-yellow btn-block mb-2" type="button"
+							onclick="RunAISearch()"
+						<svg xmlns="http://www.w3.org/2000/svg"
+							 width="24"
+							 height="24"
+							 viewBox="0 0 24 24"
+							 fill="none"
+							 stroke="currentColor"
+							 stroke-width="2"
+							 stroke-linecap="round"
+							 stroke-linejoin="round"
+							 class="icon icon-tabler icons-tabler-outline icon-tabler-brain">
+							<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+							<path d="M15.5 13a3.5 3.5 0 0 0 -3.5 3.5v1a3.5 3.5 0 0 0 7 0v-1.8" />
+							<path d="M8.5 13a3.5 3.5 0 0 1 3.5 3.5v1a3.5 3.5 0 0 1 -7 0v-1.8" />
+							<path d="M17.5 16a3.5 3.5 0 0 0 0 -7h-.5" />
+							<path d="M19 9.3v-2.8a3.5 3.5 0 0 0 -7 0" />
+							<path d="M6.5 16a3.5 3.5 0 0 1 0 -7h.5" />
+							<path d="M5 9.3v-2.8a3.5 3.5 0 0 1 7 0v10" />
+						</svg>
+						&nbsp;AI Search
+					</button>
+					@* <button class="btn btn-yellow btn-block mb-2" type="button"
 							data-toggle="modal"
 							data-target="#aiSearchModal">
 						<svg xmlns="http://www.w3.org/2000/svg"
@@ -71,13 +96,13 @@
 							<path d="M5 9.3v-2.8a3.5 3.5 0 0 1 7 0v10" />
 						</svg>
 						&nbsp;AI Search
-					</button>
-					<button class="btn btn-yellow btn-block" type="button"
-							data-toggle="modal"
-							data-target="#domainSuggestionModal">
-						<i class="fa fa-search" aria-hidden="true"></i>&nbsp;Get Domain
-						Suggestions
-					</button>
+					</button> *@
+					@* <button class="btn btn-yellow btn-block" type="button"
+					data-toggle="modal"
+					data-target="#domainSuggestionModal">
+					<i class="fa fa-search" aria-hidden="true"></i>&nbsp;Get Domain
+					Suggestions
+					</button> *@
 				</div>
 			</div>
 
@@ -140,9 +165,9 @@
 							</button>
 						</div>
 						<div class="col-md-4 mb-2">
-							<button class="btn btn-yellow btn-block">
-								<i class="fa fa-search" aria-hidden="true"></i>&nbsp;Search
-							</button>
+							@* <button class="btn btn-yellow btn-block">
+							<i class="fa fa-search" aria-hidden="true"></i>&nbsp;Search
+							</button> *@
 						</div>
 					</div>
 					<div class="row">
@@ -153,9 +178,27 @@
 							<input type="file" onchange="uploadFile()" hidden id="importFile" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" />
 						</div>
 						<div class="col-md-4 mb-2">
-							<button class="btn btn-yellow-export btn-block" type="button" id="export-csv">
-								<i class="fa fa-upload" aria-hidden="true"></i>&nbsp;Export
-							</button>
+							<div class="dropdown btn-block mb-3">
+								<button class="btn btn-warning dropdown-toggle btn-block" type="button"
+										id="exportDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+									<i class="fa fa-upload" aria-hidden="true"></i>&nbsp;Export
+								</button>
+								<div class="dropdown-menu w-100 text-center bg-dark text-light border-0 shadow" aria-labelledby="exportDropdown">
+									<a class="dropdown-item text-light export-item" href="#" id="export-csv">
+										<i class="fa fa-file-csv mr-2 text-warning"></i>Export as CSV
+									</a>
+									<a class="dropdown-item text-light export-item" href="#" id="export-excel">
+										<i class="fa fa-file-excel mr-2 text-success"></i>Export as Excel
+									</a>
+									<a class="dropdown-item text-light export-item" href="#" id="export-txt">
+										<i class="fa fa-file-pdf mr-2 text-danger"></i>Export as Text
+									</a>
+									<a class="dropdown-item text-light export-item" href="#" id="export-json">
+										<i class="fa fa-file-code mr-2 text-info"></i>Export as JSON
+									</a>
+								</div>
+
+							</div>
 						</div>
 						<div class="col-md-4 mb-2">
 							<button class="btn btn-green btn-block" onclick="DownloadSample()" type="button">
@@ -170,12 +213,12 @@
 		<div class="container-fluid mt-4 text-white" style="display:none;" id="result-section">
 			<div class="d-flex justify-content-between align-items-center mb-3">
 				<h2 class="text-light mb-0">Domain Check Results</h2>
-				<div class="d-flex align-items-center gap-2">
+				@* <div class="d-flex align-items-center gap-2">
 					<label for="stopwatch" class="text-light mb-0">Elapsed Time:</label>
 					<div id="stopwatch" class="text-warning fw-bold px-4 py-2 rounded-3 shadow-sm" style="background-color: #1f1f1f; min-width: 100px;">
 						⏱ 00:00
 					</div>
-				</div>
+				</div> *@
 			</div>
 
 			<!-- Progress + Stats + Filters -->
@@ -184,17 +227,40 @@
 				<div class="col-md-3">
 					<div class="card p-3 h-100">
 						<h6>Progress</h6>
+
 						<div>
 							<strong id="domains-checked">0</strong> /
 							<strong id="domains-length">0</strong>
 							(<span id="progress">0</span>%)
 						</div>
+
+						<!-- progress bar START -->
+						<div class="progress mt-2" style="height: 18px;">
+							<div id="progress-bar"
+								 class="progress-bar bg-success"
+								 role="progressbar"
+								 style="width: 0%;"
+								 aria-valuenow="0"
+								 aria-valuemin="0"
+								 aria-valuemax="100"></div>
+						</div>
+						<!-- progress bar END -->
+
 						<hr class="border-secondary" />
+
 						<div class="small">
-							Checking: <span id="checking" class="text-muted">-</span>
+							<div class="d-flex align-items-center gap-2">
+								<label for="stopwatch" class="text-light mb-0">Elapsed Time:</label>
+								<div id="stopwatch"
+									 class="text-warning fw-bold px-4 py-2 rounded-3 shadow-sm"
+									 style="background-color:#1f1f1f;min-width:100px;">
+									⏱ 00:00
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
+
 
 				<!-- Counters -->
 				<div class="col-md-3">
@@ -417,6 +483,7 @@
 					</div>
 				</div>
 			</div>
+		</div>
 	</form>
 
 	@* <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script> *@
@@ -426,10 +493,5 @@
 	<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
-	<script>
-		$(".js-select2").select2({
-			placeholder: "Choose TLD extensions",
-		});
-	</script>
 </body>
 </html>
