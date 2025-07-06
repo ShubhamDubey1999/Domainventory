@@ -187,6 +187,9 @@ $(document).ready(function () {
         startTime = Date.now();                 // NEW – restart the stopwatch (if you use it)
 
         $('#result-section').show();
+        document.querySelector("#result-section").scrollIntoView({
+            behavior: "smooth"
+        });
         let requestPayload = {
             domains: domainList,
             tlds: tlds,
@@ -222,9 +225,9 @@ $(document).ready(function () {
                 //}
                 $('#result-section').show();
 
-                document.querySelector("#result-section").scrollIntoView({
-                    behavior: "smooth"
-                });
+                //document.querySelector("#result-section").scrollIntoView({
+                //    behavior: "smooth"
+                //});
             },
             error: function (xhr, status, error) {
                 alert('Error: ' + xhr.responseText);
