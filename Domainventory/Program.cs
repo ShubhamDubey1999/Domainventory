@@ -1,4 +1,4 @@
-using Domainventory.Models;
+﻿using Domainventory.Models;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,7 +15,7 @@ builder.Services.AddSignalR(options =>
     options.KeepAliveInterval = TimeSpan.FromSeconds(30); // default is 15s
     options.ClientTimeoutInterval = TimeSpan.FromMinutes(5); // default is 30s
 });
-
+builder.Services.AddHostedService<DailyDirectoryCleaner>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

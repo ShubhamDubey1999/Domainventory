@@ -92,27 +92,15 @@ namespace Domainventory.Controllers
 			var stopwatch = Stopwatch.StartNew();
 			var hasPrefixOrSuffix = !string.IsNullOrEmpty(request.Prefix) || !string.IsNullOrEmpty(request.Suffix);
 			var hasTlds = request.Tlds?.Any() == true;
-			//var domainsToCheck = request.Domains
-			//					.Select(d => hasPrefixOrSuffix ? $"{request.Prefix}{d}{request.Suffix}" : d)
-			//					.SelectMany(d => hasTlds ? request.Tlds.Select(tld => $"{d}.{tld}") : new[] { d })
-			//					.Where(d => request.Maxlength == 0 || d.Split(".")[0].Length <= request.Maxlength)
-			//					.ToList();
-			// helper: does the string already look like "name.tld"
 			static bool HasDot(string s) => s.Contains('.');
-
-			// 1️⃣  prefix / suffix
-			// 2️⃣  if the result already has a dot ⇒ keep as‑is
-			// 3️⃣  otherwise, attach every requested TLD (if any)
-			// 4️⃣  finally, respect Maxlength on the *label* part
 			var domainsToCheck =
 				request.Domains
 					   .Select(d => hasPrefixOrSuffix ? $"{request.Prefix}{d}{request.Suffix}" : d)
 					   .SelectMany(d =>
 						   HasDot(d)
-							   ? new[] { d }                                                // full domain already
+							   ? new[] { d } 
 							   : (hasTlds
-									 ? request.Tlds.Select(tld => $"{d}.{tld}")             // expand with TLDs
-									 : new[] { d }))                                        // no TLD expansion
+									 ? request.Tlds.Select(tld => $"{d}.{tld}")  : new[] { d }))
 					   .Where(d => request.Maxlength == 0 ||
 								   d.Split('.')[0].Length <= request.Maxlength)
 					   .ToList();
