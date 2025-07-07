@@ -22,6 +22,12 @@ namespace Domainventory.Controllers
 		private IConfiguration _config;
 		private static readonly Regex DomainRegex = new(@"^(?!-)(?:[A-Za-z0-9-]{1,63}\.)+[A-Za-z]{2,}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 		private static bool IsValidDomain(string domain) => DomainRegex.IsMatch(domain);
+		private static readonly ConcurrentDictionary<string, ManualResetEventSlim> _pauseHandles
+	= new();
+
+		private static readonly ConcurrentDictionary<string, CancellationTokenSource> _stopTokens
+			= new();
+
 
 		public DomainventoryController(IWebHostEnvironment environment, IConfiguration configuration)
 		{
@@ -108,6 +114,16 @@ namespace Domainventory.Controllers
 			progress.Total = domainsToCheck.Count;
 			_progressStore[requestId] = progress;
 
+
+			/* -------- PAUSE + STOP HANDLES ------------------------------------ */
+			var pauseHandle = new ManualResetEventSlim(true);      // ★ set = running
+			var stopCts = new CancellationTokenSource();       // ★ external stop
+			_pauseHandles[requestId] = pauseHandle;                // ★ register
+			_stopTokens[requestId] = stopCts;                    // ★ register
+
+			using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, stopCts.Token);
+			var token = linkedCts.Token;                           // ★ use this instead of callToken
+
 			int MaxConcurrency = 100, BatchSize = 500;
 			var results = new ConcurrentBag<DomainResult>();
 
@@ -129,10 +145,12 @@ namespace Domainventory.Controllers
 
 			foreach (var batch in domainsToCheck.Chunk(BatchSize))
 			{
-				cancellationToken.ThrowIfCancellationRequested();
+				token.ThrowIfCancellationRequested();              // ★ stop check
 
 				var tasks = batch.Select(async domain =>
 				{
+					pauseHandle.Wait(token);                       // ★ block if paused
+
 					var sw = Stopwatch.StartNew();
 					await semaphore.WaitAsync(cancellationToken);
 
@@ -267,6 +285,10 @@ namespace Domainventory.Controllers
 			//await AppendBatchToCsvAsync(csvFilePath, results, cancellationToken);
 			stopwatch.Stop();
 
+			progress.State = JobState.Completed;                   // ★ mark done
+
+			_pauseHandles.TryRemove(requestId, out _);             // ★ tidy maps
+			_stopTokens.TryRemove(requestId, out _);
 			return new DomainCheckSummary
 			{
 				Available = results.Count(x => x.Status.StartsWith("Available")),
@@ -987,5 +1009,44 @@ namespace Domainventory.Controllers
 
 			return reply;
 		}
+		[HttpPost]
+		public IActionResult PauseJob(string requestId)
+		{
+			if (_pauseHandles.TryGetValue(requestId, out var h) &&
+				_progressStore.TryGetValue(requestId, out var p))
+			{
+				h.Reset();                 // block workers
+				p.State = JobState.Paused;
+				return Ok();
+			}
+			return NotFound();
+		}
+
+		[HttpPost]
+		public IActionResult ResumeJob(string requestId)
+		{
+			if (_pauseHandles.TryGetValue(requestId, out var h) &&
+				_progressStore.TryGetValue(requestId, out var p))
+			{
+				h.Set();                   // unblock workers
+				p.State = JobState.Running;
+				return Ok();
+			}
+			return NotFound();
+		}
+
+		[HttpPost]
+		public IActionResult StopJob(string requestId)
+		{
+			if (_stopTokens.TryGetValue(requestId, out var cts) &&
+				_progressStore.TryGetValue(requestId, out var p))
+			{
+				cts.Cancel();              // trigger cancellation
+				p.State = JobState.Stopped;
+				return Ok();
+			}
+			return NotFound();
+		}
+
 	}
 }

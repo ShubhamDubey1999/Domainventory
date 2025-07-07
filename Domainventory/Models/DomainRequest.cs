@@ -29,11 +29,14 @@ namespace Domainventory.Models
 		[JsonPropertyName("not_found")]
 		public string NotFound { get; set; }
 	}
+	public enum JobState { Running, Paused, Stopped, Completed }
+
 	public class ProgressInfo
 	{
 		public int Total { get; set; }
 		public int Processed { get; set; }
 		public double Percentage => Total == 0 ? 0 : (double)Processed / Total * 100;
+		public JobState State { get; set; } = JobState.Running;
 	}
 
 

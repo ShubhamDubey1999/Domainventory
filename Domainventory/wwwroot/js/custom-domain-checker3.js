@@ -6,7 +6,7 @@ function generateRequestId() {
     });
 }
 
-const requestId = generateRequestId();
+var requestId;
 const pollInterval = 2000;
 
 async function pollProgress() {
@@ -36,10 +36,13 @@ async function pollProgress() {
         console.error("Error polling progress:", err);
     }
 }
-
-var startTime = Date.now();
+let startTime = null;   // Date.now() when we started/resumed
+let elapsedBeforePause = 0;      // ms already counted before the pause
+let stopwatchInterval = null;   // setInterval handle
 function updateStopwatch() {
-    const secs = Math.floor((Date.now() - startTime) / 1000);
+    // total elapsed = time from previous runs + time since last resume
+    const totalMs = elapsedBeforePause + (startTime ? Date.now() - startTime : 0);
+    const secs = Math.floor(totalMs / 1000);
     const mm = String(Math.floor(secs / 60)).padStart(2, "0");
     const ss = String(secs % 60).padStart(2, "0");
     document.getElementById("stopwatch").textContent = `⏱ ${mm}:${ss}`;
@@ -156,7 +159,7 @@ $(document).ready(function () {
         $('#result-section').hide();
         //const overlay = document.getElementById("overlay-loader");
         //const progressFill = document.getElementById("loader-progress-text");
-
+        requestId = generateRequestId();
 
         $('#result-table tbody').empty();
         $('#available-counter').text(0);
@@ -549,4 +552,53 @@ function RunAISearch() {
             //responseBox.html("<p class='text-danger'>❌ Error: " + xhr.responseText + "</p>");
         }
     });
+}
+function startStopwatch() {                 // call when the job begins
+    startTime = Date.now();
+    elapsedBeforePause = 0;
+    clearInterval(stopwatchInterval);
+    stopwatchInterval = setInterval(updateStopwatch, 1000);
+}
+
+function pauseStopwatch() {                 // local pause
+    if (!startTime) return;                 // already paused
+    elapsedBeforePause += Date.now() - startTime;
+    startTime = null;
+    clearInterval(stopwatchInterval);
+    updateStopwatch();
+}
+
+function resumeStopwatch() {                // local resume
+    if (startTime) return;                  // already running
+    startTime = Date.now();
+    clearInterval(stopwatchInterval);
+    stopwatchInterval = setInterval(updateStopwatch, 1000);
+}
+
+function stopStopwatch() {                  // local stop
+    startTime = null;
+    elapsedBeforePause = 0;
+    clearInterval(stopwatchInterval);
+    updateStopwatch();                      // will show 00:00
+}
+
+/* ------------------------------------------------------------------ */
+/*  API wrappers that mix UI + server calls                           */
+/* ------------------------------------------------------------------ */
+function pauseJob() {
+    fetch(`/Domainventory/PauseJob?requestId=${requestId}`, { method: "POST" })
+        .then(() => pauseStopwatch())
+        .catch(console.error);
+}
+
+function resumeJob() {
+    fetch(`/Domainventory/ResumeJob?requestId=${requestId}`, { method: "POST" })
+        .then(() => resumeStopwatch())
+        .catch(console.error);
+}
+
+function stopJob() {
+    fetch(`/Domainventory/StopJob?requestId=${requestId}`, { method: "POST" })
+        .then(() => stopStopwatch())
+        .catch(console.error);
 }

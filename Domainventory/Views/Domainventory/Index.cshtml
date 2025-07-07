@@ -315,8 +315,30 @@
 								<label class="form-check-label" for="hide-resource">Hide Resource</label>
 							</div>
 						</div>
+
+						<hr class="border-secondary" />
+
+						<h6 class="mb-2">Controls</h6>
+						<div class="d-flex flex-wrap gap-2">
+							<button type="button" class="mr-2 btn btn-sm btn-danger d-flex align-items-center gap-2 px-3 py-1" id="stop-button" onclick="stopJob()">
+								<i class="fa fa-stop mr-2"></i> Stop
+							</button>
+
+							<button type="button" class="mr-2 btn btn-sm btn-warning d-flex align-items-center gap-2 px-3 py-1 text-dark" id="pause-button" onclick="pauseJob()">
+								<i class="fa fa-pause mr-2"></i> Pause
+							</button>
+
+							<button type="button" class="btn btn-sm btn-success d-flex align-items-center gap-2 px-3 py-1" id="resume-button" onclick="resumeJob()">
+								<i class="fa fa-play mr-2"></i> Resume
+							</button>
+						</div>
+
+
+
 					</div>
 				</div>
+
+
 			</div>
 
 			<!-- Controls -->
